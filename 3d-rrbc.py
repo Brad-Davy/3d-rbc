@@ -1,18 +1,18 @@
 """Dedalus simulation of 3d Rayleigh benard rotating convection
 
 Usage:
-    3d-rrbc.py --ra=<rayleigh> --ek=<ekman> --N=<resolution> --max_dt=<Maximum_dt> --init_dt=<Initial_dt> [--pr=<prandtl>] [--mesh=<mesh>]
+    3d-rrbc.py [--ra=<rayleigh>] [--ek=<ekman>] [--N=<resolution>] [--max_dt=<Maximum_dt>]  [--init_dt=<Initial_dt>] [--pr=<prandtl>] [--mesh=<mesh>]
     3d-rrbc.py -h | --help
 
 Options:
-    -h --help   Display this help message
-    --ra=<rayliegh>        Rayleigh number
-    --ek=<ekman>           Ekman number
-    --N=<resolution>       Nx=Ny=2Nz
-    --max_dt=<Maximum_dt>  Maximum Time Step
-    --init_dt=<Initial_dt> Initial Time Step
-    --pr=<prandtl>         Prandtl number [default: 7]
-    --mesh=<mesh>          Parallel mesh [default: None]
+    -h --help               Display this help message
+    --ra=<rayliegh>         Rayleigh number [default: 1e5]
+    --ek=<ekman>            Ekman number [default: 1e-1]
+    --N=<resolution>        Nx=Ny=2Nz [default: 64]
+    --max_dt=<Maximum_dt>   Maximum Time Step [default: 1e-3]
+    --pr=<prandtl>          Prandtl number [default: 7]
+    --mesh=<mesh>           Parallel mesh [default: None]
+    --init_dt=<Initial_dt>  Initial Time Step [default: 1e-3]
 """
 
 from mpi4py import MPI
@@ -26,7 +26,6 @@ import logging
 import os
 logger = logging.getLogger(__name__)
 
-
 ## Setting up Docopt ##
 args=docopt(__doc__)
 comm = MPI.COMM_WORLD
@@ -39,6 +38,7 @@ Nz = N#int(N/2)
 ## Set the aspect ratio ##
 Lx = Ly = 1
 Lz = 1
+
 
 ## Pull the parameters from the input file ##
 Rayleigh = float(args['--ra'])

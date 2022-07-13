@@ -1,18 +1,18 @@
 """Dedalus simulation of 3d Rayleigh benard rotating convection
 
 Usage:
-    3d-rrbc.py --ra=<rayleigh> --ek=<ekman> --N=<resolution> --max_dt=<Maximum_dt> --init_dt=<Initial_dt> [--pr=<prandtl>] [--mesh=<mesh>]
+    3d-rrbc.py [--ra=<rayleigh> --ek=<ekman> --N=<resolution> --max_dt=<Maximum_dt> --init_dt=<Initial_dt> --pr=<prandtl> --mesh=<mesh>]
     3d-rrbc.py -h | --help
 
 Options:
-    -h --help   Display this help message
-    --ra=<rayliegh>        Rayleigh number
-    --ek=<ekman>           Ekman number
-    --N=<resolution>       Nx=Ny=2Nz
-    --max_dt=<Maximum_dt>  Maximum Time Step
-    --init_dt=<Initial_dt> Initial Time Step
-    --pr=<prandtl>         Prandtl number [default: 7]
-    --mesh=<mesh>          Parallel mesh [default: None]
+    -h --help               Display this help message
+    --ra=<rayliegh>         Rayleigh number [default: 1e5]
+    --ek=<ekman>            Ekman number [default: 1e0]
+    --N=<resolution>        Nx=Ny=2Nz [default: 64]
+    --max_dt=<Maximum_dt>   Maximum Time Step [default: 1e-3]
+    --init_dt=<Initial_dt>  Initial Time Step [default: 1e-6]
+    --pr=<prandtl>          Prandtl number [default: 7]
+    --mesh=<mesh>           Parallel mesh [default: None]
 """
 
 from mpi4py import MPI

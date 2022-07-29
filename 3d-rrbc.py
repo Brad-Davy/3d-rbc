@@ -1,11 +1,8 @@
-"""Dedalus simulation of 3d Rayleigh benard rotating convection.
+""" Dedalus simulation of 3d Rayleigh benard rotating convection.
 
 Usage:
-
     3d-rrbc.py [--ra=<rayleigh>] [--ek=<ekman>] [--N=<resolution>] [--max_dt=<Maximum_dt>]  [--init_dt=<Initial_dt>] [--pr=<prandtl>] [--mesh=<mesh>]
-
     3d-rrbc.py -h | --help
-
 Options:
     -h --help               Display this help message
     --ra=<rayliegh>         Rayleigh number [default: 1e5]
@@ -28,54 +25,83 @@ import logging
 import os
 logger = logging.getLogger(__name__)
 
-## Setting up Docopt ##
-args=docopt(__doc__)
+# =============================================================================
+# Setting up Docopt 
+# =============================================================================
+
+args = docopt(__doc__)
 comm = MPI.COMM_WORLD
 
-## Pull the number of spectral modes from the input ##
+# =============================================================================
+# Pull the number of spectral modes from the input 
+# =============================================================================
+
 N = int(args['--N'])
 Nx = Ny = N
 Nz = N#int(N/2)
 
-## Set the aspect ratio ##
+# =============================================================================
+# Set the aspect ratio 
+# =============================================================================
+
 Lx = Ly = 1
 Lz = 1
 
+# =============================================================================
+# Pull the parameters from the input file
+# =============================================================================
 
-## Pull the parameters from the input file ##
 Rayleigh = float(args['--ra'])
 Ekman = float(args['--ek'])
 Prandtl = float(args['--pr'])
 max_dt = float(args['--max_dt'])
 init_dt = float(args['--init_dt'])
 
-## Format the mesh input ##
+# =============================================================================
+# Format the mesh input
+# =============================================================================
+
 if args['--mesh']!="None":
     mesh = (int(args['--mesh'].split(',')[0]),int(args['--mesh'].split(',')[1]))
 else:
     mesh=None
 
-## Simulation interation values ##
+# =============================================================================
+# Simulation interation values 
+# =============================================================================
+
 sim_end_time = 20
 max_iterations = 1000000
-sim_wall_time = 24*60*60*2 ## Run the simulation for 2 days ##
+sim_wall_time = 24*60*60*24
 
-## Set the file names ##
+# =============================================================================
+# Set the file names 
+# =============================================================================
+
 file_tag="Ra_{:.2e}_Ek_{:.2e}_Pr_{}_N_{}_".format(Rayleigh,Ekman,Prandtl,N)
 file_tag=file_tag.replace(".","-")
 
-## Make the directory to save the output files ##
+# =============================================================================
+# Make the directory to save the output files
+# =============================================================================
+
 if comm.rank==0:
    os.system('mkdir results/{}'.format(file_tag))
 
-## Set up the geometry of the run ##
+# =============================================================================
+# Set up the geometry of the run
+# =============================================================================
+
 start_init_time = time.time()
 x_basis = de.Fourier('x', Nx, interval = (0,Lx), dealias=3/2)
 y_basis = de.Fourier('y', Ny, interval = (0,Ly), dealias=3/2)
 z_basis = de.Chebyshev('z', Nz, interval = (-Lz/2,Lz/2), dealias =3/2)
 domain = de.Domain([x_basis, y_basis, z_basis], grid_dtype=np.float64, comm=comm, mesh=mesh)
 
-## Parameters ##
+# =============================================================================
+# Parameters
+# =============================================================================
+
 problem = de.IVP(domain, variables = ['p','T','u','v','w','Tz','uz','vz','wz'])
 problem.meta['p','T','u','v','w']['z']['dirichlet']=True
 problem.parameters['Ra'] = Rayleigh
@@ -85,8 +111,10 @@ problem.parameters['Lx'] = Lx
 problem.parameters['Ly'] = Ly
 problem.parameters['Lz'] = Lz
 
+# =============================================================================
+# Governing Equations
+# =============================================================================
 
-## Governing Equations ##
 problem.add_equation("dx(u) + dy(v) + wz = 0")
 problem.add_equation("dt(T) - (dx(dx(T)) + dy(dy(T)) + dz(Tz)) = w -(u*dx(T) + v*dy(T) + w*Tz)")
 problem.add_equation("dt(u) + dx(p) - Pr*(dx(dx(u)) + dy(dy(u)) + dz(uz)) - (Pr/Ek)*v  = -(u*dx(u) + v*dy(u) + w*uz)") ## Note that a 2 has been added to the coriolis term to match (Schmitz et al, 2010) take this out of further runs 
@@ -98,7 +126,10 @@ problem.add_equation("uz - dz(u) = 0")
 problem.add_equation("vz - dz(v) = 0")
 problem.add_equation("wz - dz(w) = 0")
 
-## Boundary conditions ##
+# =============================================================================
+# Boundary conditions 
+# =============================================================================
+
 problem.add_bc("left(T) = 0")
 problem.add_bc("left(u)= 0")
 problem.add_bc("left(v)= 0")
@@ -114,13 +145,18 @@ problem.add_bc("integ_z(p) = 0", condition="(nx == 0)")
 solver = problem.build_solver("RK443")
 logger.info('Solver built')
 
-## Initial Conditions ##
+# =============================================================================
+# Initial Conditions 
+# =============================================================================
+
 z = domain.grid(2)
 T = solver.state['T']
 Tz = solver.state['Tz']
 
+# =============================================================================
+# Random perturbations, initialized globally for same results in parallel 
+# =============================================================================
 
-## Random perturbations, initialized globally for same results in parallel ##
 gshape = domain.dist.grid_layout.global_shape(scales=1)
 slices = domain.dist.grid_layout.slices(scales=1)
 rand = np.random.RandomState(seed=23)
@@ -129,41 +165,89 @@ pert = 1e-4 * noise
 T['g'] =  pert 
 T.differentiate('z',out=Tz)
 
-## Setting the simulation duration ##
+# =============================================================================
+# Setting the simulation duration
+# =============================================================================
+
 solver.stop_sim_time = sim_end_time
 solver.stop_wall_time = sim_wall_time
 solver.stop_iteration = max_iterations
 
-## Snapshots ##
+# =============================================================================
+# Snapshots of the entire domain
+# =============================================================================
+
 snap = solver.evaluator.add_file_handler('results/{}/{}snapshots'.format(file_tag,file_tag), iter = 10000, max_writes = 20)
 snap.add_system(solver.state)
 snap.add_task("u*u + v*v + w*w", layout = 'c', name = 'kinetic_spectrum')
 
-## Compute each terms seperatley, i.e. F_x, F_y, F_z and compute rms as (Guzman, 2021) do ##
+# =============================================================================
+# Compute each terms seperatley, i.e. F_x, F_y, F_z and compute rms as 
+# (Guzman, 2021) do.
+# =============================================================================
 
-## X equation
+# =============================================================================
+# Momentum x-equation
+# =============================================================================
+
 snap.add_task("-dx(p)", name = 'x_pressure')
 snap.add_task("Pr*(dx(dx(u)) + dy(dy(u)) + dz(uz))", name = 'x_diffusion')
 snap.add_task("(Pr/Ek)*v", name = 'x_coriolis')
 snap.add_task("-(u*dx(u) + v*dy(u) + w*uz)", name = 'x_inertia')
 
-## Y equation
+# =============================================================================
+# Momentum y-equation
+# =============================================================================
+
 snap.add_task("-dy(p)", name = 'y_pressure')
 snap.add_task("Pr*(dx(dx(v)) + dy(dy(v)) + dz(vz))", name = 'y_diffusion')
 snap.add_task("-(Pr/Ek)*u", name = 'y_coriolis')
 snap.add_task("-(u*dx(v) + v*dy(v) + w*vz)", name = 'y_inertia')
 
+# =============================================================================
+# Momentum z-equation
+# =============================================================================
 
-## Z equation
 snap.add_task("-dz(p)", name = 'z_pressure')
 snap.add_task("Pr*(dx(dx(w)) + dy(dy(w)) + dz(wz))", name = 'z_diffusion')
 snap.add_task("-(u*dx(w) + v*dy(w) + w*wz)", name = 'z_inertia')
 snap.add_task("Ra*Pr*T", name = 'z_bouyancy')
 
 
+# =============================================================================
+# Dealing with the curl of the equations to exclude pressure and terms balancing 
+# with pressure, i.e. the vorticity equation.
+# =============================================================================
 
 
-## Dedalus Analysis files ##
+# =============================================================================
+# Vorticity x-equation
+# =============================================================================
+
+snap.add_task("Pr*(dx(dx(u)) + dy(dy(u)) + dz(uz))", name = 'x_diffusion')
+snap.add_task("(Pr/Ek)*v", name = 'x_coriolis')
+snap.add_task("-(u*dx(u) + v*dy(u) + w*uz)", name = 'x_inertia')
+
+# =============================================================================
+# Vorticity y-equation
+# =============================================================================
+
+snap.add_task("Pr*(dx(dx(v)) + dy(dy(v)) + dz(vz))", name = 'y_diffusion')
+snap.add_task("-(Pr/Ek)*u", name = 'y_coriolis')
+snap.add_task("-(u*dx(v) + v*dy(v) + w*vz)", name = 'y_inertia')
+
+# =============================================================================
+# Vorticity z-equation
+# =============================================================================
+
+snap.add_task("Pr*(dx(dx(w)) + dy(dy(w)) + dz(wz))", name = 'z_diffusion')
+snap.add_task("-(u*dx(w) + v*dy(w) + w*wz)", name = 'z_inertia')
+snap.add_task("Ra*Pr*T", name = 'z_bouyancy')
+
+# =============================================================================
+# Dedalus analysis files containing integral properties of the system
+# =============================================================================
+
 analysis = solver.evaluator.add_file_handler('results/{}/{}analysis'.format(file_tag,file_tag),iter=5, max_writes=np.inf)
 analysis.add_task("sqrt((1/(Lz*Lx*Ly))*integ(u*u + v*v + w*w))", name = "Pe")
 analysis.add_task("(1/Pr)*sqrt((1/(Lx*Ly*Lz))*integ(u*u + v*v + w*w))", name = "Re")
@@ -187,12 +271,17 @@ analysis.add_task("(1/(Lx*Ly))*integ(integ( Tz,'x'),'y')", name = "conduction_pr
 analysis.add_task("(1/(Lx*Ly))*integ(integ( w*T,'x'),'y')", name = "advection_prof")
 analysis.add_task("(1/(Lx*Ly*Lz))*integ(dx(T)*dx(T) + dy(T)*dy(T) + Tz*Tz)", name = "thermal_dissipation")
 
+# =============================================================================
+# Set CFL
+# =============================================================================
 
-## Set CFL ##
 CFL = flow_tools.CFL(solver, initial_dt = init_dt, cadence=5, safety=0.2, max_change=1.2, min_change=0.1, max_dt = max_dt)
 CFL.add_velocities(('u', 'v', 'w'))
 
-## Set up the flow properties ##
+# =============================================================================
+# Set up the flow properties
+# =============================================================================
+
 flow = flow_tools.GlobalFlowProperty(solver, cadence=10)
 flow.add_property("sqrt(u*u + v*v + w*w) / Pr", name='Re')
 flow.add_property("sqrt((1/(Lz*Lx*Ly))*integ(u*u + v*v + w*w))", name = "Pe")
@@ -218,14 +307,19 @@ flow.add_property("(1/(Lx*Ly*Lz))*integ(dx(T)*dx(T) + dy(T)*dy(T) + Tz*Tz)", nam
 end_init_time = time.time()
 logger.info('Initialization time: %f' %(end_init_time-start_init_time))
 
-## Open the log file and write the titles too ##
+# =============================================================================
+# Open the log file and write the titles too 
+# =============================================================================
+
 log_file = open('results/{}/{}log.txt'.format(file_tag,file_tag),'w')
 log_file.write("3D-rrbc, Ra:{:.2e}, Ek:{:.2e}, Nz:{}, Ny:{}, Nx:{}, Pr:{}, \n".format(Rayleigh,Ekman,Nz,Ny,Nx,Prandtl))
 log_file.write('time\tRe\tNu-top\tNu-bottom\tNu-midplane\tNu-integral\tumax\tvmax\twmax\tbuoyancy\tdissip\tenergy-balance\tnu-error\tD_visc\tthermal_dissipation\t\n')
 log_file.close()
 
+# =============================================================================
+# Main loop 
+# =============================================================================
 
-## Main loop ##
 try:
     logger.info('Starting loop')
     start_run_time = time.time()
@@ -277,8 +371,3 @@ finally:
     logger.info('Sim end time: %f' %solver.sim_time)
     logger.info('Run time: %.2f sec' %(end_run_time-start_run_time))
     logger.info('Run time: %f cpu-hr' %((end_run_time-start_run_time)/60/60*domain.dist.comm_cart.size))
-
-
-
-
-

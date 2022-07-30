@@ -102,10 +102,11 @@ with h5py.File('{}{}/snapshots.h5'.format(dir,snapshot_file_name), mode = 'r') a
     z_inertia = np.copy(file['tasks']["z_inertia"])[-snap_t:,:,:,:]
     z_buoyancy = np.copy(file['tasks']["z_bouyancy"])[-snap_t:,:,:,:]
 
+# =============================================================================
+# Some code to try and take the spectrum of the real fields, i.e. get the 
+# spectrum of the forces.
+# =============================================================================
 
-####################################################################################################
-## Some code to try and take the spectrum of the real fields, i.e. get the spectrum of the forces ##
-####################################################################################################
 
 Nx = N 
 Ny = N
@@ -118,8 +119,11 @@ y_basis = de.Fourier('y', Ny, interval = (0,Ly), dealias=3/2)
 z_basis = de.Chebyshev('z', Nz, interval = (-Lz/2,Lz/2), dealias =3/2)
 domain = de.Domain([x_basis, y_basis, z_basis], grid_dtype=np.float64)
 
+# =============================================================================
+# Create fields in dedalus so we can use dedalus tools for computations, 
+# retain spectral accuracy e.c.t.
+# =============================================================================
 
-## Create fields in dedalus so we can use dedalus tools for computations, retain spectral accuracy e.c.t ##
 Viscosity = domain.new_field(name='viscosity')
 Coriolis = domain.new_field(name='coriolis')
 ACoriolis = domain.new_field(name='Acoriolis')
@@ -128,7 +132,6 @@ Buoyancy = domain.new_field(name='buoyancy')
 Pressure = domain.new_field(name='pressure')
 Kinetic = domain.new_field(name='kinetic')
 
-print(np.shape(Viscosity['c']))
 
 ## Velocity fields ##
 U = domain.new_field(name='u')
@@ -136,58 +139,117 @@ V = domain.new_field(name='v')
 W = domain.new_field(name='w')
 Nusselt = domain.new_field(name='Nusselt')
 
-def ComputeRMS(Fx, Fy, Fz):
+def computeRMS(Fx, Fy, Fz):
+    """
+    
 
-    ##################################################################################
-    ## Like the equation used in (Andres, 2021) this computes the RMS of the force. ##
-    ##################################################################################
+    Parameters
+    ----------
+    Fx : FORCE IN X.
+    Fy : FORCE IN Y.
+    Fz : FORCE IN Z.
+
+    Returns
+    -------
+    RMS of the force. Computes: sqrt(Fx^2 + Fy^2 + Fz^2) as used in (Andres,2021).
+
+    """
 
     return np.sqrt(Fx**2 + Fy**2 + Fz**2)
 
 
-def Compute(Force):
+def computeSpectrum(Force):
+    """
+    
 
-    ##################################################################################
-    ## Function which computes all the usefull information that we want to extract, ##
-    ## takes the argument 'Force' which is the force we are using.                  ##
-    ##################################################################################
+    Parameters
+    ----------
+    Force : Field object from dedalus.
 
-    #Force.meta['z']['constant'] = True
+    Returns
+    -------
+    The spectrum of the force averaged over two directions.
+
+    """
     
     ForceSpectrum = (Force['c'].imag**2 +  Force['c'].real**2)**0.5
     z_avg = np.sum(ForceSpectrum, axis = 0) # average over z 
-    return np.sum(z_avg, axis=1) # average over x or y, change the axis to pick which one
+    return np.sum(z_avg, axis=1) 
 
-def HorizontalAverage(ForceRMS):
+def horizontalAverage(ForceRMS):
+    """
+    
 
-    #####################################################################################################################################
-    ## Takes in the rms of the force and returns a 1d array which contains the plane averaged profile, i.e. F(z) as in (Guzman, 2021). ##
-    #####################################################################################################################################
+    Parameters
+    ----------
+    ForceRMS : TRoot mean square of the force.
+
+    Returns
+    -------
+    The averaged of each force over x and y, leaving a 1d profile against z. 
+    As done in (Guzman, 2021).
+
+    """
     profile = []
-
-    RotatedForce = np.rot90(ForceRMS, k=1, axes=(2,0))
+    rotatedForce = np.rot90(ForceRMS, k=1, axes=(2,0))
  
-    for lines in RotatedForce:
+    for lines in rotatedForce:
         profile.append(np.sum(lines))
 
     return np.array(profile)
 
 def derivative(data,z):
-    derivative = np.gradient(data,z)
-    return derivative
+    """
+    
 
-def determine_root(derivative,z):
+    Parameters
+    ----------
+    data : 1d data.
+    z : z domain array.
+
+    Returns
+    -------
+    Derivative with respect to z.
+
+    """
+    return np.gradient(data,z)
+
+def determineRoot(derivative,z):
+    """
+    
+
+    Parameters
+    ----------
+    derivative : TYPE
+        DESCRIPTION.
+    z : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    upper : TYPE
+        DESCRIPTION.
+    lower : TYPE
+        DESCRIPTION.
+    avg : TYPE
+        DESCRIPTION.
+    avg_points : TYPE
+        DESCRIPTION.
+
+    """
 
     upper,lower,avg = 0,0,0
     zero_crossings = np.where(np.diff(np.sign(derivative)))[0]
 
     ## Determine the lower crossing ##
-    x,y = [z[zero_crossings[0]],z[zero_crossings[0]+1]],[derivative[zero_crossings[0]],derivative[zero_crossings[0]+1]]
+    x,y = [z[zero_crossings[0]],z[zero_crossings[0]+1]],
+          [derivative[zero_crossings[0]], derivative[zero_crossings[0]+1]]
     m,b = np.polyfit(y,x,1)
     lower = b
 
     ## Determine the upper crossing ##
-    x,y = [z[zero_crossings[-1]],z[zero_crossings[-1]+1]],[derivative[zero_crossings[-1]],derivative[zero_crossings[-1]+1]]
+    x,y = [z[zero_crossings[-1]],z[zero_crossings[-1]+1]],
+          [derivative[zero_crossings[-1]],derivative[zero_crossings[-1]+1]]
     m,b = np.polyfit(y,x,1)
     upper = b
     avg = (lower + (1-upper))/2
@@ -198,7 +260,7 @@ def determine_root(derivative,z):
     return upper, lower, avg, avg_points
 
 
-def RemoveBoundaries(Mask, Force):
+def removeBoundaries(Mask, Force):
 
     RotatedForce = np.rot90(Force['g'], k=1, axes = (2,0))
     MaskedForce = RotatedForce*Mask
@@ -246,42 +308,42 @@ BlankMatrix = np.zeros(np.shape(z_diffusion[-1]), dtype=np.int32)
 for idx in range(1,snap_t+1):
 
     ## Load data
-    Viscosity['g'] = ComputeRMS(x_diffusion[-idx], y_diffusion[-idx], z_diffusion[-idx])
-    Coriolis['g'] = ComputeRMS(x_coriolis[-idx], y_coriolis[-idx], BlankMatrix)
-    Inertia['g'] = ComputeRMS(x_inertia[-idx], y_inertia[-idx], z_inertia[-idx])
-    Buoyancy['g'] = ComputeRMS(BlankMatrix, BlankMatrix, z_buoyancy[-idx])
-    Pressure['g'] = ComputeRMS(x_pressure[-idx], y_pressure[-idx], z_pressure[-idx])
+    Viscosity['g'] = computeRMS(x_diffusion[-idx], y_diffusion[-idx], z_diffusion[-idx])
+    Coriolis['g'] = computeRMS(x_coriolis[-idx], y_coriolis[-idx], BlankMatrix)
+    Inertia['g'] = computeRMS(x_inertia[-idx], y_inertia[-idx], z_inertia[-idx])
+    Buoyancy['g'] = computeRMS(BlankMatrix, BlankMatrix, z_buoyancy[-idx])
+    Pressure['g'] = computeRMS(x_pressure[-idx], y_pressure[-idx], z_pressure[-idx])
     Kinetic['c'] = kinetic_spectrum[-idx]
-    ACoriolis['g'] = ComputeRMS(x_pressure[-idx] + x_coriolis[-idx], y_pressure[-idx] + y_coriolis[-idx], z_pressure[-idx] - BlankMatrix)
+    ACoriolis['g'] = computeRMS(x_pressure[-idx] + x_coriolis[-idx], y_pressure[-idx] + y_coriolis[-idx], z_pressure[-idx] - BlankMatrix)
     U['g'] = u[-idx]
     V['g'] = v[-idx]
     W['g'] = w[-idx]
     
     ## Remove Boundaries
-    RemoveBoundaries(Mask, Viscosity)
-    RemoveBoundaries(Mask, Pressure)
-    RemoveBoundaries(Mask, Coriolis)
-    RemoveBoundaries(Mask, Inertia)
-    RemoveBoundaries(Mask, ACoriolis)
-    RemoveBoundaries(Mask, Buoyancy)
-    RemoveBoundaries(Mask, Kinetic)
-    RemoveBoundaries(Mask, U)
-    RemoveBoundaries(Mask, V)
-    RemoveBoundaries(Mask, W)
+    removeBoundaries(Mask, Viscosity)
+    removeBoundaries(Mask, Pressure)
+    removeBoundaries(Mask, Coriolis)
+    removeBoundaries(Mask, Inertia)
+    removeBoundaries(Mask, ACoriolis)
+    removeBoundaries(Mask, Buoyancy)
+    removeBoundaries(Mask, Kinetic)
+    removeBoundaries(Mask, U)
+    removeBoundaries(Mask, V)
+    removeBoundaries(Mask, W)
 
 
     
     ## Compute the spectrums of each force ##
-    ViscosityTimeSeries.append(Compute(Viscosity))
-    CoriolisTimeSeries.append(Compute(Coriolis))
-    InertiaTimeSeries.append(Compute(Inertia))
-    BuoyancyTimeSeries.append(Compute(Buoyancy))
-    PressureTimeSeries.append(Compute(Pressure))
-    KineticTimeSeries.append(Compute(Kinetic))
-    UTimeSeries.append(Compute(U))
-    VTimeSeries.append(Compute(V))
-    WTimeSeries.append(Compute(W))
-    ACoriolisTimeSeries.append(Compute(ACoriolis))
+    ViscosityTimeSeries.append(computeSpectrum(Viscosity))
+    CoriolisTimeSeries.append(computeSpectrum(Coriolis))
+    InertiaTimeSeries.append(computeSpectrum(Inertia))
+    BuoyancyTimeSeries.append(computeSpectrum(Buoyancy))
+    PressureTimeSeries.append(computeSpectrum(Pressure))
+    KineticTimeSeries.append(computeSpectrum(Kinetic))
+    UTimeSeries.append(computeSpectrum(U))
+    VTimeSeries.append(computeSpectrum(V))
+    WTimeSeries.append(computeSpectrum(W))
+    ACoriolisTimeSeries.append(computeSpectrum(ACoriolis))
 
     ## Compute the horizontal average ##
     HAvgViscosityTimeSeries.append(HorizontalAverage(Viscosity['g']))

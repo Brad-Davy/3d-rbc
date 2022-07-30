@@ -163,59 +163,12 @@ with h5py.File('{}{}/snapshots.h5'.format(dir,snapshot_file_name), mode = 'r') a
     vorticity_z_diffusion = np.copy(file['tasks']["vorticity_z_diffusion"])[-snap_t:,:,:,:]
     vorticity_z_inertia = np.copy(file['tasks']["vorticity_z_inertia"])[-snap_t:,:,:,:]
     vorticity_z_coriolis = np.copy(file['tasks']["vorticity_z_coriolis"])[-snap_t:,:,:,:]
+    
 
 # =============================================================================
-# Some code to try and take the spectrum of the real fields, i.e. get the 
-# spectrum of the forces.
+# All my functions which I use through out the script
 # =============================================================================
-
-
-Nx = N 
-Ny = N
-Lx = Ly = 1
-Lz = 1
-Nz = int(N/Lx)
-
-x_basis = de.Fourier('x', Nx, interval = (0,Lx), dealias=3/2)
-y_basis = de.Fourier('y', Ny, interval = (0,Ly), dealias=3/2)
-z_basis = de.Chebyshev('z', Nz, interval = (-Lz/2,Lz/2), dealias =3/2)
-domain = de.Domain([x_basis, y_basis, z_basis], grid_dtype=np.float64)
-
-# =============================================================================
-# Create fields in dedalus so we can use dedalus tools for computations, 
-# retain spectral accuracy e.c.t.
-# =============================================================================
-
-# =============================================================================
-# Momentum Equation
-# =============================================================================
-
-Viscosity = domain.new_field(name='viscosity')
-Coriolis = domain.new_field(name='coriolis')
-ACoriolis = domain.new_field(name='Acoriolis')
-Inertia = domain.new_field(name='inertia')
-Buoyancy = domain.new_field(name='buoyancy')
-Pressure = domain.new_field(name='pressure')
-
-# =============================================================================
-# Vorticity Equation
-# =============================================================================
-
-vorticityViscosity = domain.new_field(name='vorticityViscosity')
-vorticityCoriolis = domain.new_field(name='vorticityCoriolis')
-vorticityInertia = domain.new_field(name='vorticityInertia')
-vorticityBuoyancy = domain.new_field(name='vorticityBuoyancy')
-
-# =============================================================================
-# Velocity fields
-# =============================================================================
-
-Kinetic = domain.new_field(name='kinetic')
-U = domain.new_field(name='u')
-V = domain.new_field(name='v')
-W = domain.new_field(name='w')
-Nusselt = domain.new_field(name='Nusselt')
-
+    
 def computeRMS(Fx, Fy, Fz):
     """
     
@@ -360,6 +313,59 @@ def removeBoundaries(Mask, Force):
     Force['g'] = np.rot90(MaskedForce,	k=-1, axes = (2,0))
 
 # =============================================================================
+# Some code to try and take the spectrum of the real fields, i.e. get the 
+# spectrum of the forces.
+# =============================================================================
+
+
+Nx = N 
+Ny = N
+Lx = Ly = 1
+Lz = 1
+Nz = int(N/Lx)
+
+x_basis = de.Fourier('x', Nx, interval = (0,Lx), dealias=3/2)
+y_basis = de.Fourier('y', Ny, interval = (0,Ly), dealias=3/2)
+z_basis = de.Chebyshev('z', Nz, interval = (-Lz/2,Lz/2), dealias =3/2)
+domain = de.Domain([x_basis, y_basis, z_basis], grid_dtype=np.float64)
+
+# =============================================================================
+# Create fields in dedalus so we can use dedalus tools for computations, 
+# retain spectral accuracy e.c.t.
+# =============================================================================
+
+# =============================================================================
+# Momentum Equation
+# =============================================================================
+
+Viscosity = domain.new_field(name='viscosity')
+Coriolis = domain.new_field(name='coriolis')
+ACoriolis = domain.new_field(name='Acoriolis')
+Inertia = domain.new_field(name='inertia')
+Buoyancy = domain.new_field(name='buoyancy')
+Pressure = domain.new_field(name='pressure')
+
+# =============================================================================
+# Vorticity Equation
+# =============================================================================
+
+vorticityViscosity = domain.new_field(name='vorticityViscosity')
+vorticityCoriolis = domain.new_field(name='vorticityCoriolis')
+vorticityInertia = domain.new_field(name='vorticityInertia')
+vorticityBuoyancy = domain.new_field(name='vorticityBuoyancy')
+
+# =============================================================================
+# Velocity fields
+# =============================================================================
+
+Kinetic = domain.new_field(name='kinetic')
+U = domain.new_field(name='u')
+V = domain.new_field(name='v')
+W = domain.new_field(name='w')
+Nusselt = domain.new_field(name='Nusselt')
+
+
+# =============================================================================
 # Avg the horizontal velocity profile over time
 # Create an array which contains only the last N points, then avg over this.
 # =============================================================================
@@ -393,6 +399,11 @@ KineticTimeSeries = []
 UTimeSeries = []
 VTimeSeries = []
 WTimeSeries = []
+vorticityViscosityTimeSeries = []
+vorticityCoriolisTimeSeries = []
+vorticityBuoyancyTimeSeries = []
+vorticityInertiaTimeSeries = []
+
 
 # =============================================================================
 # Arrays containing the time series for the horizontal average
@@ -404,7 +415,7 @@ HAvgBuoyancyTimeSeries = []
 HAvgInertiaTimeSeries = []
 HAvgPressureTimeSeries = []
 HAvgACoriolisTimeSeries = []
-BlankMatrix = np.zeros(np.shape(z_diffusion[-1]), dtype=np.int32)
+blankMatrix = np.zeros(np.shape(z_diffusion[-1]), dtype=np.int32)
 
 for idx in range(1,snap_t+1):
 
@@ -413,15 +424,20 @@ for idx in range(1,snap_t+1):
     # =============================================================================
     
     Viscosity['g'] = computeRMS(x_diffusion[-idx], y_diffusion[-idx], z_diffusion[-idx])
-    Coriolis['g'] = computeRMS(x_coriolis[-idx], y_coriolis[-idx], BlankMatrix)
+    Coriolis['g'] = computeRMS(x_coriolis[-idx], y_coriolis[-idx], blankMatrix)
     Inertia['g'] = computeRMS(x_inertia[-idx], y_inertia[-idx], z_inertia[-idx])
-    Buoyancy['g'] = computeRMS(BlankMatrix, BlankMatrix, z_buoyancy[-idx])
+    Buoyancy['g'] = computeRMS(blankMatrix, blankMatrix, z_buoyancy[-idx])
     Pressure['g'] = computeRMS(x_pressure[-idx], y_pressure[-idx], z_pressure[-idx])
     Kinetic['c'] = kinetic_spectrum[-idx]
-    ACoriolis['g'] = computeRMS(x_pressure[-idx] + x_coriolis[-idx], y_pressure[-idx] + y_coriolis[-idx], z_pressure[-idx] - BlankMatrix)
+    ACoriolis['g'] = computeRMS(x_pressure[-idx] + x_coriolis[-idx], y_pressure[-idx] + y_coriolis[-idx], z_pressure[-idx] - blankMatrix)
     U['g'] = u[-idx]
     V['g'] = v[-idx]
     W['g'] = w[-idx]
+    
+    vorticityViscosity['g'] = computeRMS(vorticity_x_diffusion[-idx], vorticity_y_diffusion[-idx], vorticity_z_diffusion[-idx])
+    vorticityCoriolis['g'] = computeRMS(vorticity_x_coriolis[-idx], vorticity_y_coriolis[-idx], vorticity_z_coriolis[-idx])
+    vorticityInertia['g'] = computeRMS(vorticity_x_inertia[-idx], vorticity_y_inertia[-idx], vorticity_z_inertia[-idx])
+    vorticityBuoyancy['g'] = computeRMS(vorticity_x_bouyancy[-idx], vorticity_y_bouyancy[-idx], blankMatrix)
     
     # =========================================================================
     # Remove the boundaries
@@ -437,6 +453,10 @@ for idx in range(1,snap_t+1):
     removeBoundaries(Mask, U)
     removeBoundaries(Mask, V)
     removeBoundaries(Mask, W)
+    removeBoundaries(Mask, vorticityViscosity)
+    removeBoundaries(Mask, vorticityCoriolis)
+    removeBoundaries(Mask, voritcityInertia)
+    removeBoundaries(Mask, vorticityBuoyancy)
     
     # =========================================================================
     # Compute the spectrum
@@ -452,6 +472,10 @@ for idx in range(1,snap_t+1):
     VTimeSeries.append(computeSpectrum(V))
     WTimeSeries.append(computeSpectrum(W))
     ACoriolisTimeSeries.append(computeSpectrum(ACoriolis))
+    vorticityViscosityTimeSeries.append(computeSpectrum(vorticityViscosity))
+    vorticityCoriolisTimeSeries.append(computeSpectrum(vorticityCoriolis))
+    vorticityInertiaTimeSeries.append(computeSpectrum(vorticityInertia))
+    vorticityBuoyancyTimeSeries.append(computeSpectrum(vorticityBuoyancy))
 
     # =========================================================================
     # Compute the horizontal average
@@ -480,6 +504,10 @@ KineticSpectrum = np.average(np.array(KineticTimeSeries), axis=0)
 USpectrum = np.average(np.array(UTimeSeries), axis=0)
 VSpectrum = np.average(np.array(VTimeSeries), axis=0)
 WSpectrum = np.average(np.array(WTimeSeries), axis=0)
+vorticityViscositySpectrum = np.average(np.array(ViscosityTimeSeries), axis=0)
+vorticityInertiaSpectrum = np.average(np.array(InertiaTimeSeries), axis=0)
+vorticityBuoyancySpectrum = np.average(np.array(BuoyancyTimeSeries), axis=0)
+vorticityCoriolisSpectrum = np.average(np.array(CoriolisTimeSeries), axis=0)
 
 # =============================================================================
 # Time avg the profiles
@@ -513,6 +541,20 @@ plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
 plt.savefig('{}/img/ForceSpectrum.eps'.format(dir), dpi=500)
 plt.show()
 
+fig = plt.figure(figsize=(10,10))
+plt.plot(range(len(ViscositySpectrum)), vorticityViscositySpectrum, label = '$F_v$', color = ViscosityColour, lw=spectrumlw)
+plt.plot(range(len(ViscositySpectrum)), vorticityCoriolisSpectrum, label = '$F_C$', color = CoriolisColour, lw=spectrumlw)
+plt.plot(range(len(InertiaSpectrum)), vorticityInertiaSpectrum, label = '$F_I$', color = InertiaColour, lw=spectrumlw)
+plt.plot(range(len(BuoyancySpectrum)), vorticityBuoyancySpectrum, label = '$F_B$', color = BuoyancyColour, lw=spectrumlw)
+plt.xscale("log")
+plt.yscale("log")
+plt.xlabel('$K_z$')
+plt.ylabel('Magnitude')
+plt.xlim(1,64)
+legend_properties = {'weight':'bold'}
+plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
+plt.savefig('{}/img/vorticityForceSpectrum.eps'.format(dir), dpi=500)
+plt.show()
 
 print('The max wavenumber for k.e: {}, u: {}, v: {}, w: {}.'.format(np.argmax(KineticSpectrum[:64]), np.argmax(USpectrum[:64]), np.argmax(VSpectrum[:64]), np.argmax(WSpectrum[:64])))
 fig = plt.figure(figsize=(12,6))

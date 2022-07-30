@@ -23,6 +23,10 @@ from dedalus import public as de
 from dedalus.core.operators import Integrate 
 from colours import *
 
+# =============================================================================
+# Extract the docopt arguments 
+# =============================================================================
+
 args = docopt(__doc__)
 dir = str(args['--dir'])
 transient = int(args['--t'])
@@ -31,10 +35,13 @@ transient = int(args['--t'])
 snap_t = int(args['--snap_t'])
 mask = int(args['--mask'])
 
+# =============================================================================
+# Set some plotting parameters for later 
+# =============================================================================
+
 plt.rcParams['font.family'] = 'Serif'
 plt.rcParams['font.size'] = 18
 plt.rcParams['axes.linewidth'] = 1
-
 BuoyancyColour = CB91_Green
 ViscosityColour = CB91_Pink
 InertiaColour = 'maroon'
@@ -43,6 +50,9 @@ PressureColour = 'darkorange'
 ACColour = CB91_Blue
 spectrumlw = 2
 
+# =============================================================================
+# Create the string which leads to the right directory
+# =============================================================================
 
 for idx,lines in enumerate(os.listdir(dir)):
     if lines.find('analysis') != -1:
@@ -53,54 +63,106 @@ for idx,lines in enumerate(dir.split('/')[1].split('_')):
         Ra = float(lines.replace('-','.'))
     if idx == 3:
         a,b,c,d,e,f,g,h = lines
-        Ek = float(a+'.'+c+d+'e-'+g+h) ## This code is awful change it at some point ##
+        Ek = float(a+'.'+c+d+'e-'+g+h)
     if idx == 5:
         Pr = float(lines.replace('-','.'))
     if idx == 7:
         N = int(lines)
+        
+# =============================================================================
+# Extract some profiles from the analysis file, these are used later
+# =============================================================================
 
 with h5py.File('{}{}/analysis.h5'.format(dir,forces_file_name), mode = 'r') as file:
 
     z = np.copy(file['tasks']["z"])[0,0,0,:]
     U_h = np.copy(file['tasks']['U_H_prof'])
+    
+# =============================================================================
+# Check to see if there is an img directory, if not then create one.
+# =============================================================================
 
 if os.path.isdir(dir+'/img') == True:
     pass
 else:
     os.system('mkdir {}/img'.format(dir))
 
+# =============================================================================
+# Extract the snapshot filename 
+# =============================================================================
 
 for idx,lines in enumerate(os.listdir(dir)):
     if lines.find('snapshot') != -1:
         snapshot_file_name = os.listdir(dir)[idx]
 
+# =============================================================================
+# Load the data from the snapshot data file
+# =============================================================================
 
 with h5py.File('{}{}/snapshots.h5'.format(dir,snapshot_file_name), mode = 'r') as file:
 
-    ## Velocity data ##
+    # =========================================================================
+    # Velocity data
+    # =========================================================================
+    
     kinetic_spectrum = np.copy(file['tasks']["kinetic_spectrum"])[-snap_t:,:,:,:]
     u = np.copy(file['tasks']["u"])[-snap_t:,:,:,:]
     v = np.copy(file['tasks']["v"])[-snap_t:,:,:,:]
     w = np.copy(file['tasks']["w"])[-snap_t:,:,:,:]
     T = np.copy(file['tasks']["T"])[-snap_t:,:,:,:]
 
-    ## X equation
+    # =========================================================================
+    # Momentum X equation
+    # =========================================================================
+    
     x_pressure = np.copy(file['tasks']["x_pressure"])[-snap_t:,:,:,:]
     x_diffusion = np.copy(file['tasks']["x_diffusion"])[-snap_t:,:,:,:]
     x_coriolis = np.copy(file['tasks']["x_coriolis"])[-snap_t:,:,:,:]
     x_inertia = np.copy(file['tasks']["x_inertia"])[-snap_t:,:,:,:]
 
-    ## Y equation
+    # =========================================================================
+    # Momentum Y equation
+    # =========================================================================
+    
     y_pressure = np.copy(file['tasks']["y_pressure"])[-snap_t:,:,:,:]
     y_diffusion = np.copy(file['tasks']["y_diffusion"])[-snap_t:,:,:,:]
     y_coriolis = np.copy(file['tasks']["y_coriolis"])[-snap_t:,:,:,:]
     y_inertia =	np.copy(file['tasks']["y_inertia"])[-snap_t:,:,:,:]
 
-    ## Z equation
+    # =========================================================================
+    # Momentum Z equation
+    # =========================================================================
+    
     z_pressure = np.copy(file['tasks']["z_pressure"])[-snap_t:,:,:,:]
     z_diffusion = np.copy(file['tasks']["z_diffusion"])[-snap_t:,:,:,:]
     z_inertia = np.copy(file['tasks']["z_inertia"])[-snap_t:,:,:,:]
     z_buoyancy = np.copy(file['tasks']["z_bouyancy"])[-snap_t:,:,:,:]
+    
+    # =========================================================================
+    # Vorticity X equation
+    # =========================================================================
+    
+    vorticity_x_diffusion = np.copy(file['tasks']["vorticity_x_diffusion"])[-snap_t:,:,:,:]
+    vorticity_x_coriolis = np.copy(file['tasks']["vorticity_x_coriolis"])[-snap_t:,:,:,:]
+    vorticity_x_bouyancy = np.copy(file['tasks']["vorticity_x_bouyancy"])[-snap_t:,:,:,:]
+    vorticity_x_inertia = np.copy(file['tasks']["vorticity_x_inertia"])[-snap_t:,:,:,:]
+
+    # =========================================================================
+    # Vorticity Y equation
+    # =========================================================================
+    
+    vorticity_y_diffusion = np.copy(file['tasks']["vorticity_y_diffusion"])[-snap_t:,:,:,:]
+    vorticity_y_coriolis = np.copy(file['tasks']["vorticity_y_coriolis"])[-snap_t:,:,:,:]
+    vorticity_y_bouyancy = np.copy(file['tasks']["vorticity_y_bouyancy"])[-snap_t:,:,:,:]
+    vorticity_y_inertia =	np.copy(file['tasks']["vorticity_y_inertia"])[-snap_t:,:,:,:]
+
+    # =========================================================================
+    # Vorticity Z equation
+    # =========================================================================
+    
+    vorticity_z_diffusion = np.copy(file['tasks']["vorticity_z_diffusion"])[-snap_t:,:,:,:]
+    vorticity_z_inertia = np.copy(file['tasks']["vorticity_z_inertia"])[-snap_t:,:,:,:]
+    vorticity_z_coriolis = np.copy(file['tasks']["vorticity_z_coriolis"])[-snap_t:,:,:,:]
 
 # =============================================================================
 # Some code to try and take the spectrum of the real fields, i.e. get the 
@@ -124,16 +186,31 @@ domain = de.Domain([x_basis, y_basis, z_basis], grid_dtype=np.float64)
 # retain spectral accuracy e.c.t.
 # =============================================================================
 
+# =============================================================================
+# Momentum Equation
+# =============================================================================
+
 Viscosity = domain.new_field(name='viscosity')
 Coriolis = domain.new_field(name='coriolis')
 ACoriolis = domain.new_field(name='Acoriolis')
 Inertia = domain.new_field(name='inertia')
 Buoyancy = domain.new_field(name='buoyancy')
 Pressure = domain.new_field(name='pressure')
+
+# =============================================================================
+# Vorticity Equation
+# =============================================================================
+
+vorticityViscosity = domain.new_field(name='vorticityViscosity')
+vorticityCoriolis = domain.new_field(name='vorticityCoriolis')
+vorticityInertia = domain.new_field(name='vorticityInertia')
+vorticityBuoyancy = domain.new_field(name='vorticityBuoyancy')
+
+# =============================================================================
+# Velocity fields
+# =============================================================================
+
 Kinetic = domain.new_field(name='kinetic')
-
-
-## Velocity fields ##
 U = domain.new_field(name='u')
 V = domain.new_field(name='v')
 W = domain.new_field(name='w')
@@ -220,70 +297,92 @@ def determineRoot(derivative,z):
 
     Parameters
     ----------
-    derivative : TYPE
-        DESCRIPTION.
-    z : TYPE
-        DESCRIPTION.
+    derivative : The derivative of a profile.
+    z : The z domain.
 
     Returns
     -------
-    upper : TYPE
-        DESCRIPTION.
-    lower : TYPE
-        DESCRIPTION.
-    avg : TYPE
-        DESCRIPTION.
-    avg_points : TYPE
-        DESCRIPTION.
+    upper : Upper boundarie.
+    lower : Lower boundarie.
+    avg : Average of the two.
+    avg_points : Average number of points in both.
 
     """
 
     upper,lower,avg = 0,0,0
     zero_crossings = np.where(np.diff(np.sign(derivative)))[0]
 
-    ## Determine the lower crossing ##
+    # =========================================================================
+    # Determine the lower crossing 
+    # =========================================================================
+    
     x,y = [z[zero_crossings[0]],z[zero_crossings[0]+1]],
           [derivative[zero_crossings[0]], derivative[zero_crossings[0]+1]]
     m,b = np.polyfit(y,x,1)
     lower = b
-
-    ## Determine the upper crossing ##
+    
+    # =========================================================================
+    # Determine the upper crossing 
+    # =========================================================================
+    
     x,y = [z[zero_crossings[-1]],z[zero_crossings[-1]+1]],
           [derivative[zero_crossings[-1]],derivative[zero_crossings[-1]+1]]
     m,b = np.polyfit(y,x,1)
     upper = b
     avg = (lower + (1-upper))/2
 
-    ## Calculate avg points in boundary ##
+    # =========================================================================
+    # Calculate the average number of points in the boundaries.
+    # =========================================================================
+    
     avg_points = zero_crossings[0]*mask
 
     return upper, lower, avg, avg_points
 
 
 def removeBoundaries(Mask, Force):
+    """
+    
+
+    Parameters
+    ----------
+    Mask : An array of ones and zeroes which removes the boundaries.
+    Force : The force from which we want to remove the boundaries.
+
+    Returns
+    -------
+    None: preformed in place.
+
+    """
 
     RotatedForce = np.rot90(Force['g'], k=1, axes = (2,0))
     MaskedForce = RotatedForce*Mask
     Force['g'] = np.rot90(MaskedForce,	k=-1, axes = (2,0))
 
-## Avg the horizontal velocity profile over time ##
-avg_u_h = np.average(np.array(U_h[-transient:,0,0,:]), axis=0) ## Create an array which contains only the last N points, then avg over this ##
+# =============================================================================
+# Avg the horizontal velocity profile over time
+# Create an array which contains only the last N points, then avg over this.
+# =============================================================================
+
+avg_u_h = np.average(np.array(U_h[-transient:,0,0,:]), axis=0) 
 upper_viscous_boundary, lower_viscous_boundary, avg_viscous_boundary, avg_points = determine_root(derivative(avg_u_h,z),z)
 
+# =============================================================================
+# Construct a matrix which is 1 everywhere other than in the viscous boundary 
+# where it is 0. This can be used to remove the viscous boundaries from my 
+# force plots.
+# =============================================================================
 
-## Construct a matrix which is 1 everywhere other than in the viscous boundary where it is 0. This can be used to remove the viscous boundaries 
-## from my force plots
-
-Mask = np.rot90(np.ones(np.shape(x_diffusion[-1]),dtype=np.int32), k=1 , axes=(2,0)) ## Rotate that boi
-
+Mask = np.rot90(np.ones(np.shape(x_diffusion[-1]),dtype=np.int32), k=1 , axes=(2,0))
 
 for idx,slices in enumerate(Mask):
-    
     if idx < avg_points or idx >= len(z) - avg_points:
-
         Mask[idx] = np.zeros(np.shape(slices))
 
-## Arrays containing the time series ##
+# =============================================================================
+# Arrays containing the time series for the spectra
+# =============================================================================
+
 ViscosityTimeSeries = []
 CoriolisTimeSeries = []
 BuoyancyTimeSeries = []
@@ -295,8 +394,10 @@ UTimeSeries = []
 VTimeSeries = []
 WTimeSeries = []
 
+# =============================================================================
+# Arrays containing the time series for the horizontal average
+# =============================================================================
 
-## Arrays containing the time series ##
 HAvgViscosityTimeSeries = []
 HAvgCoriolisTimeSeries = []
 HAvgBuoyancyTimeSeries = []
@@ -307,7 +408,10 @@ BlankMatrix = np.zeros(np.shape(z_diffusion[-1]), dtype=np.int32)
 
 for idx in range(1,snap_t+1):
 
-    ## Load data
+    # =============================================================================
+    # Load data
+    # =============================================================================
+    
     Viscosity['g'] = computeRMS(x_diffusion[-idx], y_diffusion[-idx], z_diffusion[-idx])
     Coriolis['g'] = computeRMS(x_coriolis[-idx], y_coriolis[-idx], BlankMatrix)
     Inertia['g'] = computeRMS(x_inertia[-idx], y_inertia[-idx], z_inertia[-idx])
@@ -319,7 +423,10 @@ for idx in range(1,snap_t+1):
     V['g'] = v[-idx]
     W['g'] = w[-idx]
     
-    ## Remove Boundaries
+    # =========================================================================
+    # Remove the boundaries
+    # =========================================================================
+    
     removeBoundaries(Mask, Viscosity)
     removeBoundaries(Mask, Pressure)
     removeBoundaries(Mask, Coriolis)
@@ -330,10 +437,11 @@ for idx in range(1,snap_t+1):
     removeBoundaries(Mask, U)
     removeBoundaries(Mask, V)
     removeBoundaries(Mask, W)
-
-
     
-    ## Compute the spectrums of each force ##
+    # =========================================================================
+    # Compute the spectrum
+    # =========================================================================
+    
     ViscosityTimeSeries.append(computeSpectrum(Viscosity))
     CoriolisTimeSeries.append(computeSpectrum(Coriolis))
     InertiaTimeSeries.append(computeSpectrum(Inertia))
@@ -345,7 +453,10 @@ for idx in range(1,snap_t+1):
     WTimeSeries.append(computeSpectrum(W))
     ACoriolisTimeSeries.append(computeSpectrum(ACoriolis))
 
-    ## Compute the horizontal average ##
+    # =========================================================================
+    # Compute the horizontal average
+    # =========================================================================
+        
     HAvgViscosityTimeSeries.append(HorizontalAverage(Viscosity['g']))
     HAvgCoriolisTimeSeries.append(HorizontalAverage(Coriolis['g']))
     HAvgInertiaTimeSeries.append(HorizontalAverage(Inertia['g']))
@@ -355,7 +466,10 @@ for idx in range(1,snap_t+1):
 
     print('Coriolis: {:.2e}, Pressure: {:.2e}, Viscosity: {:.2e}, Inertia: {:.2e}, Buoyancy: {:.2e}, Ageostrophic: {:.2e}'.format(np.sum(Coriolis['g']), np.sum(Pressure['g']),np.sum(Viscosity['g']), np.sum(Inertia['g']), np.sum(Buoyancy['g']), np.sum(ACoriolis['g'])))
 
-## Time avg the spectrums ##
+# =============================================================================
+# Time avg the spectrums 
+# =============================================================================
+
 ViscositySpectrum = np.average(np.array(ViscosityTimeSeries), axis=0)
 InertiaSpectrum = np.average(np.array(InertiaTimeSeries), axis=0)
 BuoyancySpectrum = np.average(np.array(BuoyancyTimeSeries), axis=0)
@@ -367,7 +481,10 @@ USpectrum = np.average(np.array(UTimeSeries), axis=0)
 VSpectrum = np.average(np.array(VTimeSeries), axis=0)
 WSpectrum = np.average(np.array(WTimeSeries), axis=0)
 
-## Time avg the profiles ##
+# =============================================================================
+# Time avg the profiles
+# =============================================================================
+
 ViscosityProfile = np.average(np.array(HAvgViscosityTimeSeries), axis=0)
 InertiaProfile = np.average(np.array(HAvgInertiaTimeSeries), axis=0)
 BuoyancyProfile = np.average(np.array(HAvgBuoyancyTimeSeries), axis=0)
@@ -375,6 +492,9 @@ CoriolisProfile = np.average(np.array(HAvgCoriolisTimeSeries), axis=0)
 PressureProfile = np.average(np.array(HAvgPressureTimeSeries), axis=0)
 ACoriolisProfile = np.average(np.array(HAvgACoriolisTimeSeries), axis=0)
 
+# =============================================================================
+# Plotting the results
+# =============================================================================
 
 fig = plt.figure(figsize=(10,10))
 plt.plot(range(len(ViscositySpectrum)), ViscositySpectrum, label = '$F_v$', color = ViscosityColour, lw=spectrumlw)
@@ -410,8 +530,10 @@ plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
 plt.savefig('{}/img/KineticSpectrum.eps'.format(dir), dpi=500)
 plt.show()
 
+# =============================================================================
+# Plot the horizontal profiles 
+# =============================================================================
 
-## Plot the horizontal profiles ##
 fig = plt.figure(figsize=(10,10))
 plt.plot(ViscosityProfile, z, color = ViscosityColour, label = '$F_V$', lw = 2)
 plt.plot(CoriolisProfile, z, color = CoriolisColour, label = '$F_C$', lw = 2)
@@ -430,18 +552,20 @@ plt.show()
 
 
 
-## Plot mid height values like (Guzman, 2021) ##
-
-mid_point = int(len(z)/2)
-
-fig = plt.figure(figsize=(12,6))
-plt.xscale("log")
-plt.yscale("log")
-plt.scatter([Ra], ViscosityProfile[mid_point], label = 'Viscosity')
-plt.scatter([Ra], CoriolisProfile[mid_point],  label = 'Coriolis')
-plt.scatter([Ra], InertiaProfile[mid_point], label = 'Inertia')
-plt.scatter([Ra], BuoyancyProfile[mid_point], label = 'Buoyancy')
-plt.scatter([Ra], PressureProfile[mid_point], label = 'Pressure')
-plt.legend()
-plt.show()
+# =============================================================================
+# ## Plot mid height values like (Guzman, 2021) ##
+# 
+# mid_point = int(len(z)/2)
+# 
+# fig = plt.figure(figsize=(12,6))
+# plt.xscale("log")
+# plt.yscale("log")
+# plt.scatter([Ra], ViscosityProfile[mid_point], label = 'Viscosity')
+# plt.scatter([Ra], CoriolisProfile[mid_point],  label = 'Coriolis')
+# plt.scatter([Ra], InertiaProfile[mid_point], label = 'Inertia')
+# plt.scatter([Ra], BuoyancyProfile[mid_point], label = 'Buoyancy')
+# plt.scatter([Ra], PressureProfile[mid_point], label = 'Pressure')
+# plt.legend()
+# plt.show()
+# =============================================================================
 

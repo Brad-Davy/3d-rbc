@@ -170,7 +170,7 @@ with h5py.File('{}{}/snapshots.h5'.format(dir,snapshot_file_name), mode = 'r') a
 # =============================================================================
     
 def computeRMS(Fx, Fy, Fz):
-    """
+    """ 
     
 
     Parameters
@@ -189,7 +189,7 @@ def computeRMS(Fx, Fy, Fz):
 
 
 def computeSpectrum(Force):
-    """
+    """ 
     
 
     Parameters
@@ -204,10 +204,10 @@ def computeSpectrum(Force):
     
     ForceSpectrum = (Force['c'].imag**2 +  Force['c'].real**2)**0.5
     z_avg = np.sum(ForceSpectrum, axis = 0) # average over z 
-    return np.sum(z_avg, axis=1) 
+    return np.sum(z_avg, axis = 0) 
 
 def horizontalAverage(ForceRMS):
-    """
+    """ 
     
 
     Parameters
@@ -229,7 +229,7 @@ def horizontalAverage(ForceRMS):
     return np.array(profile)
 
 def derivative(data,z):
-    """
+    """ 
     
 
     Parameters
@@ -245,8 +245,8 @@ def derivative(data,z):
     return np.gradient(data,z)
 
 def determineRoot(derivative,z):
-    """
-    
+    """ 
+     
 
     Parameters
     ----------
@@ -269,8 +269,7 @@ def determineRoot(derivative,z):
     # Determine the lower crossing 
     # =========================================================================
     
-    x,y = [z[zero_crossings[0]],z[zero_crossings[0]+1]],
-          [derivative[zero_crossings[0]], derivative[zero_crossings[0]+1]]
+    x,y = [z[zero_crossings[0]],z[zero_crossings[0]+1]], [derivative[zero_crossings[0]], derivative[zero_crossings[0]+1]]
     m,b = np.polyfit(y,x,1)
     lower = b
     
@@ -278,8 +277,7 @@ def determineRoot(derivative,z):
     # Determine the upper crossing 
     # =========================================================================
     
-    x,y = [z[zero_crossings[-1]],z[zero_crossings[-1]+1]],
-          [derivative[zero_crossings[-1]],derivative[zero_crossings[-1]+1]]
+    x,y = [z[zero_crossings[-1]],z[zero_crossings[-1]+1]], [derivative[zero_crossings[-1]],derivative[zero_crossings[-1]+1]]
     m,b = np.polyfit(y,x,1)
     upper = b
     avg = (lower + (1-upper))/2
@@ -294,7 +292,7 @@ def determineRoot(derivative,z):
 
 
 def removeBoundaries(Mask, Force):
-    """
+    """ 
     
 
     Parameters
@@ -320,7 +318,7 @@ def removeBoundaries(Mask, Force):
 
 Nx = N 
 Ny = N
-Lx = Ly = 1
+Lx = Ly = 2
 Lz = 1
 Nz = int(N/Lx)
 
@@ -371,7 +369,7 @@ Nusselt = domain.new_field(name='Nusselt')
 # =============================================================================
 
 avg_u_h = np.average(np.array(U_h[-transient:,0,0,:]), axis=0) 
-upper_viscous_boundary, lower_viscous_boundary, avg_viscous_boundary, avg_points = determine_root(derivative(avg_u_h,z),z)
+upper_viscous_boundary, lower_viscous_boundary, avg_viscous_boundary, avg_points = determineRoot(derivative(avg_u_h,z),z)
 
 # =============================================================================
 # Construct a matrix which is 1 everywhere other than in the viscous boundary 
@@ -455,7 +453,7 @@ for idx in range(1,snap_t+1):
     removeBoundaries(Mask, W)
     removeBoundaries(Mask, vorticityViscosity)
     removeBoundaries(Mask, vorticityCoriolis)
-    removeBoundaries(Mask, voritcityInertia)
+    removeBoundaries(Mask, vorticityInertia)
     removeBoundaries(Mask, vorticityBuoyancy)
     
     # =========================================================================
@@ -481,12 +479,12 @@ for idx in range(1,snap_t+1):
     # Compute the horizontal average
     # =========================================================================
         
-    HAvgViscosityTimeSeries.append(HorizontalAverage(Viscosity['g']))
-    HAvgCoriolisTimeSeries.append(HorizontalAverage(Coriolis['g']))
-    HAvgInertiaTimeSeries.append(HorizontalAverage(Inertia['g']))
-    HAvgBuoyancyTimeSeries.append(HorizontalAverage(Buoyancy['g']))
-    HAvgPressureTimeSeries.append(HorizontalAverage(Pressure['g']))
-    HAvgACoriolisTimeSeries.append(abs(HorizontalAverage(ACoriolis['g'])))
+    HAvgViscosityTimeSeries.append(horizontalAverage(Viscosity['g']))
+    HAvgCoriolisTimeSeries.append(horizontalAverage(Coriolis['g']))
+    HAvgInertiaTimeSeries.append(horizontalAverage(Inertia['g']))
+    HAvgBuoyancyTimeSeries.append(horizontalAverage(Buoyancy['g']))
+    HAvgPressureTimeSeries.append(horizontalAverage(Pressure['g']))
+    HAvgACoriolisTimeSeries.append(abs(horizontalAverage(ACoriolis['g'])))
 
     print('Coriolis: {:.2e}, Pressure: {:.2e}, Viscosity: {:.2e}, Inertia: {:.2e}, Buoyancy: {:.2e}, Ageostrophic: {:.2e}'.format(np.sum(Coriolis['g']), np.sum(Pressure['g']),np.sum(Viscosity['g']), np.sum(Inertia['g']), np.sum(Buoyancy['g']), np.sum(ACoriolis['g'])))
 
@@ -542,10 +540,10 @@ plt.savefig('{}/img/ForceSpectrum.eps'.format(dir), dpi=500)
 plt.show()
 
 fig = plt.figure(figsize=(10,10))
-plt.plot(range(len(ViscositySpectrum)), vorticityViscositySpectrum, label = '$F_v$', color = ViscosityColour, lw=spectrumlw)
-plt.plot(range(len(ViscositySpectrum)), vorticityCoriolisSpectrum, label = '$F_C$', color = CoriolisColour, lw=spectrumlw)
-plt.plot(range(len(InertiaSpectrum)), vorticityInertiaSpectrum, label = '$F_I$', color = InertiaColour, lw=spectrumlw)
-plt.plot(range(len(BuoyancySpectrum)), vorticityBuoyancySpectrum, label = '$F_B$', color = BuoyancyColour, lw=spectrumlw)
+plt.plot(range(len(ViscositySpectrum)), vorticityViscositySpectrum, label = '$\\omega_v$', color = ViscosityColour, lw=spectrumlw)
+plt.plot(range(len(ViscositySpectrum)), vorticityCoriolisSpectrum, label = '$\\omega_C$', color = CoriolisColour, lw=spectrumlw)
+plt.plot(range(len(InertiaSpectrum)), vorticityInertiaSpectrum, label = '$\\omega_I$', color = InertiaColour, lw=spectrumlw)
+plt.plot(range(len(BuoyancySpectrum)), vorticityBuoyancySpectrum, label = '$\\omega_B$', color = BuoyancyColour, lw=spectrumlw)
 plt.xscale("log")
 plt.yscale("log")
 plt.xlabel('$K_z$')

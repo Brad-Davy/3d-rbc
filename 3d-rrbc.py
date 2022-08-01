@@ -235,8 +235,8 @@ snap.add_task("Ra*Pr*T", name = 'z_bouyancy')
 # =============================================================================
 
 snap.add_task("Pr*(dx(dx(w_1)) + dy(dy(w_1)) + dz(w_1_z))", name = 'vorticity_x_diffusion')
-snap.add_task("(Pr/Ek)*uz", name = 'vorticity_x_coriolis')
-snap.add_task("Ra*Pr*dx(T)", name = 'vorticity_x_bouyancy')
+snap.add_task("-(Pr/Ek)*uz", name = 'vorticity_x_coriolis')
+snap.add_task("Ra*Pr*dy(T)", name = 'vorticity_x_bouyancy')
 snap.add_task("-(u*dx(w_1) + v*dy(w_1) + w*w_1_z)", name = 'vorticity_x_inertia')
 
 # =============================================================================
@@ -244,8 +244,8 @@ snap.add_task("-(u*dx(w_1) + v*dy(w_1) + w*w_1_z)", name = 'vorticity_x_inertia'
 # =============================================================================
 
 snap.add_task("Pr*(dx(dx(w_2)) + dy(dy(w_2)) + dz(w_2_z))", name = 'vorticity_y_diffusion')
-snap.add_task("(Pr/Ek)*vz", name = 'vorticity_y_coriolis')
-snap.add_task("Ra*Pr*dy(T)", name = 'vorticity_y_bouyancy')
+snap.add_task("-(Pr/Ek)*vz", name = 'vorticity_y_coriolis')
+snap.add_task("-Ra*Pr*dx(T)", name = 'vorticity_y_bouyancy')
 snap.add_task("-(u*dx(w_2) + v*dy(w_2) + w*w_2_z)", name = 'vorticity_y_inertia')
 
 # =============================================================================

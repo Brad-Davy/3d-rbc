@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import os
 import h5py
 from scipy import stats
+from scipy.fft import fft
 from dedalus import public as de
 from dedalus.core.operators import Integrate 
 from colours import *
@@ -112,7 +113,7 @@ with h5py.File('{}{}/snapshots.h5'.format(dir,snapshot_file_name), mode = 'r') a
     T = np.copy(file['tasks']["T"])[-snap_t:,:,:,:]
 
     # =========================================================================
-    # Momentum X equation
+    # Momentum X equationnp.sum(realFieldData, axis = 2)
     # =========================================================================
     
     x_pressure = np.copy(file['tasks']["x_pressure"])[-snap_t:,:,:,:]
@@ -168,7 +169,54 @@ with h5py.File('{}{}/snapshots.h5'.format(dir,snapshot_file_name), mode = 'r') a
 # =============================================================================
 # All my functions which I use through out the script
 # =============================================================================
+
+def plotASlice(Field):
+    """
     
+
+    Parameters
+    ----------
+    Field : Dedalus Field object
+
+    Raises
+    ------
+    Must be working with 3D data.
+
+    Returns
+    -------
+    None.
+    
+    Notes
+    -----
+    Creates several plots looking at the length scales in the given field.
+    """
+
+    realFieldData = Field['g']
+    midPoint = np.shape(realFieldData)[-1] // 2
+
+    if len(np.shape(realFieldData)) != 3:
+        raise Exception('Expecting 3d data.')
+    
+    slice = np.sum(realFieldData, axis = 2)
+    sliceXAverage = np.average(slice, axis = 0)
+    sliceYAverage = np.average(slice, axis = 1)
+    horizontalDomain = np.linspace(0, 2, len(sliceYAverage)) 
+
+    fig,ax = plt.subplots(2,2, figsize=(10,10))
+    ax[0][0].imshow(slice, cmap = 'coolwarm')
+    ax[0][0].set_title('Average Temperature Field')
+    ax[1][0].plot(horizontalDomain, sliceXAverage, lw = spectrumlw, color = CB91_Blue)
+    ax[1][0].set_title('X Average')   
+    ax[0][1].plot(horizontalDomain, sliceYAverage, lw = spectrumlw, color = CB91_Violet)
+    ax[0][1].set_title('Y Average')
+    spectraX = (fft(sliceXAverage).real**2 + fft(sliceXAverage).imag**2)**0.5
+    spectraY = (fft(sliceYAverage).real**2 + fft(sliceYAverage).imag**2)**0.5
+    midPoint = len(spectraX) // 2
+    ax[1][1].plot(spectraX[:midPoint], lw = spectrumlw, color = CB91_Blue)
+    ax[1][1].plot(spectraY[:midPoint], lw = spectrumlw, color = CB91_Violet) 
+    ax[1][1].set_title('Spectra')
+    plt.show()
+
 def computeRMS(Fx, Fy, Fz):
     """ 
     
@@ -203,8 +251,8 @@ def computeSpectrum(Force):
     """
     
     ForceSpectrum = (Force['c'].imag**2 +  Force['c'].real**2)**0.5
-    z_avg = np.sum(ForceSpectrum, axis = 0) # average over z 
-    return np.sum(z_avg, axis = 0) 
+    z_avg = np.sum(ForceSpectrum, axis = 2) # average over z 
+    return np.sum(z_avg, axis = 1) 
 
 def horizontalAverage(ForceRMS):
     """ 
@@ -212,7 +260,7 @@ def horizontalAverage(ForceRMS):
 
     Parameters
     ----------
-    ForceRMS : TRoot mean square of the force.
+    ForceRMS : Root mean square of the force.
 
     Returns
     -------
@@ -360,8 +408,8 @@ Kinetic = domain.new_field(name='kinetic')
 U = domain.new_field(name='u')
 V = domain.new_field(name='v')
 W = domain.new_field(name='w')
-Nusselt = domain.new_field(name='Nusselt')
-
+Temperature = domain.new_field(name='Temperature')
+Temperature['g'] = T[-1]
 
 # =============================================================================
 # Avg the horizontal velocity profile over time
@@ -407,12 +455,12 @@ vorticityInertiaTimeSeries = []
 # Arrays containing the time series for the horizontal average
 # =============================================================================
 
-HAvgViscosityTimeSeries = []
-HAvgCoriolisTimeSeries = []
-HAvgBuoyancyTimeSeries = []
-HAvgInertiaTimeSeries = []
-HAvgPressureTimeSeries = []
-HAvgACoriolisTimeSeries = []
+horizontalAvgViscosityTimeSeries = []
+horizontalAvgCoriolisTimeSeries = []
+horizontalAvgBuoyancyTimeSeries = []
+horizontalAvgInertiaTimeSeries = []
+horizontalAvgPressureTimeSeries = []
+horizontalAvgACoriolisTimeSeries = []
 blankMatrix = np.zeros(np.shape(z_diffusion[-1]), dtype=np.int32)
 
 for idx in range(1,snap_t+1):
@@ -479,12 +527,12 @@ for idx in range(1,snap_t+1):
     # Compute the horizontal average
     # =========================================================================
         
-    HAvgViscosityTimeSeries.append(horizontalAverage(Viscosity['g']))
-    HAvgCoriolisTimeSeries.append(horizontalAverage(Coriolis['g']))
-    HAvgInertiaTimeSeries.append(horizontalAverage(Inertia['g']))
-    HAvgBuoyancyTimeSeries.append(horizontalAverage(Buoyancy['g']))
-    HAvgPressureTimeSeries.append(horizontalAverage(Pressure['g']))
-    HAvgACoriolisTimeSeries.append(abs(horizontalAverage(ACoriolis['g'])))
+    horizontalAvgViscosityTimeSeries.append(horizontalAverage(Viscosity['g']))
+    horizontalAvgCoriolisTimeSeries.append(horizontalAverage(Coriolis['g']))
+    horizontalAvgInertiaTimeSeries.append(horizontalAverage(Inertia['g']))
+    horizontalAvgBuoyancyTimeSeries.append(horizontalAverage(Buoyancy['g']))
+    horizontalAvgPressureTimeSeries.append(horizontalAverage(Pressure['g']))
+    horizontalAvgACoriolisTimeSeries.append(abs(horizontalAverage(ACoriolis['g'])))
 
     print('Coriolis: {:.2e}, Pressure: {:.2e}, Viscosity: {:.2e}, Inertia: {:.2e}, Buoyancy: {:.2e}, Ageostrophic: {:.2e}'.format(np.sum(Coriolis['g']), np.sum(Pressure['g']),np.sum(Viscosity['g']), np.sum(Inertia['g']), np.sum(Buoyancy['g']), np.sum(ACoriolis['g'])))
 
@@ -502,25 +550,28 @@ KineticSpectrum = np.average(np.array(KineticTimeSeries), axis=0)
 USpectrum = np.average(np.array(UTimeSeries), axis=0)
 VSpectrum = np.average(np.array(VTimeSeries), axis=0)
 WSpectrum = np.average(np.array(WTimeSeries), axis=0)
-vorticityViscositySpectrum = np.average(np.array(ViscosityTimeSeries), axis=0)
-vorticityInertiaSpectrum = np.average(np.array(InertiaTimeSeries), axis=0)
-vorticityBuoyancySpectrum = np.average(np.array(BuoyancyTimeSeries), axis=0)
-vorticityCoriolisSpectrum = np.average(np.array(CoriolisTimeSeries), axis=0)
+
+vorticityViscositySpectrum = np.average(np.array(vorticityViscosityTimeSeries), axis=0)
+vorticityInertiaSpectrum = np.average(np.array(vorticityInertiaTimeSeries), axis=0)
+vorticityBuoyancySpectrum = np.average(np.array(vorticityBuoyancyTimeSeries), axis=0)
+vorticityCoriolisSpectrum = np.average(np.array(vorticityCoriolisTimeSeries), axis=0)
 
 # =============================================================================
 # Time avg the profiles
 # =============================================================================
 
-ViscosityProfile = np.average(np.array(HAvgViscosityTimeSeries), axis=0)
-InertiaProfile = np.average(np.array(HAvgInertiaTimeSeries), axis=0)
-BuoyancyProfile = np.average(np.array(HAvgBuoyancyTimeSeries), axis=0)
-CoriolisProfile = np.average(np.array(HAvgCoriolisTimeSeries), axis=0)
-PressureProfile = np.average(np.array(HAvgPressureTimeSeries), axis=0)
-ACoriolisProfile = np.average(np.array(HAvgACoriolisTimeSeries), axis=0)
+ViscosityProfile = np.average(np.array(horizontalAvgViscosityTimeSeries), axis=0)
+InertiaProfile = np.average(np.array(horizontalAvgInertiaTimeSeries), axis=0)
+BuoyancyProfile = np.average(np.array(horizontalAvgBuoyancyTimeSeries), axis=0)
+CoriolisProfile = np.average(np.array(horizontalAvgCoriolisTimeSeries), axis=0)
+PressureProfile = np.average(np.array(horizontalAvgPressureTimeSeries), axis=0)
+ACoriolisProfile = np.average(np.array(horizontalAvgACoriolisTimeSeries), axis=0)
 
 # =============================================================================
 # Plotting the results
 # =============================================================================
+
+plotASlice(Temperature)
 
 fig = plt.figure(figsize=(10,10))
 plt.plot(range(len(ViscositySpectrum)), ViscositySpectrum, label = '$F_v$', color = ViscosityColour, lw=spectrumlw)

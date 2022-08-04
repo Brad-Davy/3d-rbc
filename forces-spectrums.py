@@ -10,7 +10,7 @@ Options:
     --snap_t=<transient>                Snapshot transient
     --mask=<mask>                       Number of viscous boundaries to ignore 
     --t=<transient>                     Transient to be ignored [default: 2000]
-    --fig=<Figure>                      Produce Figures [default: True]
+    --fig=<Figure>                      Produce Figures [default: False]
 """
 
 from docopt import docopt
@@ -171,7 +171,7 @@ with h5py.File('{}{}/snapshots.h5'.format(dir,snapshot_file_name), mode = 'r') a
 # =============================================================================
 
 def plotASlice(Field):
-    """
+    """ 
     
 
     Parameters
@@ -192,6 +192,7 @@ def plotASlice(Field):
     """
 
     realFieldData = Field['g']
+    fieldName = Field.name
     midPoint = np.shape(realFieldData)[-1] // 2
 
     if len(np.shape(realFieldData)) != 3:
@@ -204,7 +205,7 @@ def plotASlice(Field):
 
     fig,ax = plt.subplots(2,2, figsize=(10,10))
     ax[0][0].imshow(slice, cmap = 'coolwarm')
-    ax[0][0].set_title('Average Temperature Field')
+    ax[0][0].set_title('Average {} Field'.format(fieldName))
     ax[1][0].plot(horizontalDomain, sliceXAverage, lw = spectrumlw, color = CB91_Blue)
     ax[1][0].set_title('X Average')   
     ax[0][1].plot(horizontalDomain, sliceYAverage, lw = spectrumlw, color = CB91_Violet)
@@ -216,6 +217,25 @@ def plotASlice(Field):
     ax[1][1].plot(spectraY[:midPoint], lw = spectrumlw, color = CB91_Violet) 
     ax[1][1].set_title('Spectra')
     plt.show()
+
+def compareSpectrum(Field):
+    
+    integratedRealField = Field.integrate()['g'][0][0][0]
+    spectrum = Field['c']
+    runningSum = 0
+    realZerothSpectrum = spectrum[0][0][:].real
+ 
+    for idx,lines in enumerate(realZerothSpectrum):
+         
+        if idx == 0:
+            runningSum += 2*spectrum[0][0][idx]
+
+        elif idx % 2 == 0:
+            runningSum -= 2*spectrum[0][0][idx] / (idx**2 - 1)  
+        else:
+           pass
+
+    print(2*runningSum, integratedRealField)
 
 def computeRMS(Fx, Fy, Fz):
     """ 
@@ -392,13 +412,31 @@ Buoyancy = domain.new_field(name='buoyancy')
 Pressure = domain.new_field(name='pressure')
 
 # =============================================================================
-# Vorticity Equation
+# Full Vorticity Equation
 # =============================================================================
 
 vorticityViscosity = domain.new_field(name='vorticityViscosity')
 vorticityCoriolis = domain.new_field(name='vorticityCoriolis')
 vorticityInertia = domain.new_field(name='vorticityInertia')
 vorticityBuoyancy = domain.new_field(name='vorticityBuoyancy')
+
+# =============================================================================
+# X Vorticity Equation
+# =============================================================================
+
+xVorticityViscosity = domain.new_field(name='xVorticityViscosity')
+xVorticityCoriolis = domain.new_field(name='xVorticityCoriolis')
+xVorticityInertia = domain.new_field(name='xVorticityInertia')
+xVorticityBuoyancy = domain.new_field(name='xVorticityBuoyancy')
+
+# =============================================================================
+# Y Vorticity Equation
+# =============================================================================
+
+yVorticityViscosity = domain.new_field(name='yVorticityViscosity')
+yVorticityCoriolis = domain.new_field(name='yVorticityCoriolis')
+yVorticityInertia = domain.new_field(name='yVorticityInertia')
+yVorticityBuoyancy = domain.new_field(name='yVorticityBuoyancy')
 
 # =============================================================================
 # Velocity fields
@@ -445,11 +483,21 @@ KineticTimeSeries = []
 UTimeSeries = []
 VTimeSeries = []
 WTimeSeries = []
+
 vorticityViscosityTimeSeries = []
 vorticityCoriolisTimeSeries = []
 vorticityBuoyancyTimeSeries = []
 vorticityInertiaTimeSeries = []
 
+xVorticityViscosityTimeSeries = []
+xVorticityCoriolisTimeSeries = []
+xVorticityBuoyancyTimeSeries = []
+xVorticityInertiaTimeSeries = []
+
+yVorticityViscosityTimeSeries = []
+yVorticityCoriolisTimeSeries = []
+yVorticityBuoyancyTimeSeries = []
+yVorticityInertiaTimeSeries = []
 
 # =============================================================================
 # Arrays containing the time series for the horizontal average
@@ -485,6 +533,17 @@ for idx in range(1,snap_t+1):
     vorticityInertia['g'] = computeRMS(vorticity_x_inertia[-idx], vorticity_y_inertia[-idx], vorticity_z_inertia[-idx])
     vorticityBuoyancy['g'] = computeRMS(vorticity_x_bouyancy[-idx], vorticity_y_bouyancy[-idx], blankMatrix)
     
+    xVorticityViscosity['g'] = vorticity_x_diffusion[-idx]
+    xVorticityCoriolis['g'] = vorticity_x_coriolis[-idx]
+    xVorticityInertia['g'] = vorticity_x_inertia[-idx]
+    xVorticityBuoyancy['g'] = vorticity_x_bouyancy[-idx]  
+ 
+    yVorticityViscosity['g'] = vorticity_y_diffusion[-idx]
+    yVorticityCoriolis['g'] = vorticity_y_coriolis[-idx]
+    yVorticityInertia['g'] = vorticity_y_inertia[-idx]
+    yVorticityBuoyancy['g'] = vorticity_y_bouyancy[-idx]
+ 
+
     # =========================================================================
     # Remove the boundaries
     # =========================================================================
@@ -503,6 +562,15 @@ for idx in range(1,snap_t+1):
     removeBoundaries(Mask, vorticityCoriolis)
     removeBoundaries(Mask, vorticityInertia)
     removeBoundaries(Mask, vorticityBuoyancy)
+    removeBoundaries(Mask, xVorticityViscosity)
+    removeBoundaries(Mask, xVorticityCoriolis)
+    removeBoundaries(Mask, xVorticityInertia)
+    removeBoundaries(Mask, xVorticityBuoyancy)
+    removeBoundaries(Mask, yVorticityViscosity)
+    removeBoundaries(Mask, yVorticityCoriolis)
+    removeBoundaries(Mask, yVorticityInertia)
+    removeBoundaries(Mask, yVorticityBuoyancy)
+
     
     # =========================================================================
     # Compute the spectrum
@@ -523,6 +591,16 @@ for idx in range(1,snap_t+1):
     vorticityInertiaTimeSeries.append(computeSpectrum(vorticityInertia))
     vorticityBuoyancyTimeSeries.append(computeSpectrum(vorticityBuoyancy))
 
+    xVorticityViscosityTimeSeries.append(computeSpectrum(xVorticityViscosity))
+    xVorticityCoriolisTimeSeries.append(computeSpectrum(xVorticityCoriolis))
+    xVorticityInertiaTimeSeries.append(computeSpectrum(xVorticityInertia))
+    xVorticityBuoyancyTimeSeries.append(computeSpectrum(xVorticityBuoyancy))
+
+    yVorticityViscosityTimeSeries.append(computeSpectrum(yVorticityViscosity))
+    yVorticityCoriolisTimeSeries.append(computeSpectrum(yVorticityCoriolis))
+    yVorticityInertiaTimeSeries.append(computeSpectrum(yVorticityInertia))
+    yVorticityBuoyancyTimeSeries.append(computeSpectrum(yVorticityBuoyancy))
+
     # =========================================================================
     # Compute the horizontal average
     # =========================================================================
@@ -535,6 +613,8 @@ for idx in range(1,snap_t+1):
     horizontalAvgACoriolisTimeSeries.append(abs(horizontalAverage(ACoriolis['g'])))
 
     print('Coriolis: {:.2e}, Pressure: {:.2e}, Viscosity: {:.2e}, Inertia: {:.2e}, Buoyancy: {:.2e}, Ageostrophic: {:.2e}'.format(np.sum(Coriolis['g']), np.sum(Pressure['g']),np.sum(Viscosity['g']), np.sum(Inertia['g']), np.sum(Buoyancy['g']), np.sum(ACoriolis['g'])))
+
+compareSpectrum(Viscosity)
 
 # =============================================================================
 # Time avg the spectrums 
@@ -556,6 +636,16 @@ vorticityInertiaSpectrum = np.average(np.array(vorticityInertiaTimeSeries), axis
 vorticityBuoyancySpectrum = np.average(np.array(vorticityBuoyancyTimeSeries), axis=0)
 vorticityCoriolisSpectrum = np.average(np.array(vorticityCoriolisTimeSeries), axis=0)
 
+xVorticityViscositySpectrum = np.average(np.array(xVorticityViscosityTimeSeries), axis=0)
+xVorticityInertiaSpectrum = np.average(np.array(xVorticityInertiaTimeSeries), axis=0)
+xVorticityBuoyancySpectrum = np.average(np.array(xVorticityBuoyancyTimeSeries), axis=0)
+xVorticityCoriolisSpectrum = np.average(np.array(xVorticityCoriolisTimeSeries), axis=0)
+
+yVorticityViscositySpectrum = np.average(np.array(yVorticityViscosityTimeSeries), axis=0)
+yVorticityInertiaSpectrum = np.average(np.array(yVorticityInertiaTimeSeries), axis=0)
+yVorticityBuoyancySpectrum = np.average(np.array(yVorticityBuoyancyTimeSeries), axis=0)
+yVorticityCoriolisSpectrum = np.average(np.array(yVorticityCoriolisTimeSeries), axis=0)
+
 # =============================================================================
 # Time avg the profiles
 # =============================================================================
@@ -571,7 +661,11 @@ ACoriolisProfile = np.average(np.array(horizontalAvgACoriolisTimeSeries), axis=0
 # Plotting the results
 # =============================================================================
 
-plotASlice(Temperature)
+#plotASlice(Temperature)
+#plotASlice(U)
+#plotASlice(V)
+plotASlice(W)
+#plotASlice(Kinetic)
 
 fig = plt.figure(figsize=(10,10))
 plt.plot(range(len(ViscositySpectrum)), ViscositySpectrum, label = '$F_v$', color = ViscosityColour, lw=spectrumlw)
@@ -604,6 +698,39 @@ legend_properties = {'weight':'bold'}
 plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
 plt.savefig('{}/img/vorticityForceSpectrum.eps'.format(dir), dpi=500)
 plt.show()
+
+fig = plt.figure(figsize=(10,10))
+plt.plot(range(len(ViscositySpectrum)), yVorticityViscositySpectrum, label = '$\\omega_v$', color = ViscosityColour, lw=spectrumlw)
+plt.plot(range(len(ViscositySpectrum)), yVorticityCoriolisSpectrum, label = '$\\omega_C$', color = CoriolisColour, lw=spectrumlw)
+plt.plot(range(len(InertiaSpectrum)), yVorticityInertiaSpectrum, label = '$\\omega_I$', color = InertiaColour, lw=spectrumlw)
+plt.plot(range(len(BuoyancySpectrum)), yVorticityBuoyancySpectrum, label = '$\\omega_B$', color = BuoyancyColour, lw=spectrumlw)
+plt.xscale("log")
+plt.title('Y - Vorticity Equation')
+plt.yscale("log")
+plt.xlabel('$K_z$')
+plt.ylabel('Magnitude')
+plt.xlim(1,64)
+legend_properties = {'weight':'bold'}
+plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
+plt.savefig('{}/img/yVorticityForceSpectrum.eps'.format(dir), dpi=500)
+plt.show()
+
+fig = plt.figure(figsize=(10,10))
+plt.plot(range(len(ViscositySpectrum)), xVorticityViscositySpectrum, label = '$\\omega_v$', color = ViscosityColour, lw=spectrumlw)
+plt.plot(range(len(ViscositySpectrum)), xVorticityCoriolisSpectrum, label = '$\\omega_C$', color = CoriolisColour, lw=spectrumlw)
+plt.plot(range(len(InertiaSpectrum)), xVorticityInertiaSpectrum, label = '$\\omega_I$', color = InertiaColour, lw=spectrumlw)
+plt.plot(range(len(BuoyancySpectrum)), xVorticityBuoyancySpectrum, label = '$\\omega_B$', color = BuoyancyColour, lw=spectrumlw)
+plt.xscale("log")
+plt.title('X - Vorticity Equation')
+plt.yscale("log")
+plt.xlabel('$K_z$')
+plt.ylabel('Magnitude')
+plt.xlim(1,64)
+legend_properties = {'weight':'bold'}
+plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
+plt.savefig('{}/img/xVorticityForceSpectrum.eps'.format(dir), dpi=500)
+plt.show()
+
 
 print('The max wavenumber for k.e: {}, u: {}, v: {}, w: {}.'.format(np.argmax(KineticSpectrum[:64]), np.argmax(USpectrum[:64]), np.argmax(VSpectrum[:64]), np.argmax(WSpectrum[:64])))
 fig = plt.figure(figsize=(12,6))

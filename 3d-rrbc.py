@@ -44,7 +44,7 @@ Nz = int(N/2)
 # Set the aspect ratio 
 # =============================================================================
 
-Lx = Ly = 1
+Lx = Ly = 2
 Lz = 1
 
 # =============================================================================
@@ -187,7 +187,7 @@ solver.stop_iteration = max_iterations
 # Snapshots of the entire domain
 # =============================================================================
 
-snap = solver.evaluator.add_file_handler('results/{}/{}snapshots'.format(file_tag,file_tag), iter = 10000, max_writes = 20)
+snap = solver.evaluator.add_file_handler('results/{}/{}snapshots'.format(file_tag,file_tag), iter = 5000, max_writes = 20)
 snap.add_system(solver.state)
 snap.add_task("u*u + v*v + w*w", layout = 'c', name = 'kinetic_spectrum')
 

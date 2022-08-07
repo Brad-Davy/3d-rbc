@@ -5,9 +5,9 @@ Usage:
     3d-rrbc.py -h | --help
 Options:
     -h --help               Display this help message
-    --ra=<rayliegh>         Rayleigh number [default: 1e5]
-    --ek=<ekman>            Ekman number [default: 1e-1]
-    --N=<resolution>        Nx=Ny=2Nz [default: 32]
+    --ra=<rayliegh>         Rayleigh number [default: 3.3e5]
+    --ek=<ekman>            Ekman number [default: 1e-3]
+    --N=<resolution>        Nx=Ny=2Nz [default: 128]
     --max_dt=<Maximum_dt>   Maximum Time Step [default: 1e-3]
     --pr=<prandtl>          Prandtl number [default: 7]
     --mesh=<mesh>           Parallel mesh [default: None]

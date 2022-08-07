@@ -692,6 +692,7 @@ plt.plot(range(len(BuoyancySpectrum)), vorticityBuoyancySpectrum, label = '$\\om
 plt.xscale("log")
 plt.yscale("log")
 plt.xlabel('$K_z$')
+plt.title('Vorticity Equation')
 plt.ylabel('Magnitude')
 plt.xlim(1,64)
 legend_properties = {'weight':'bold'}
@@ -766,10 +767,6 @@ plt.ylabel('z')
 plt.savefig('{}/img/ForceProfiles.eps'.format(dir), dpi=500)
 plt.show()
 
-
-
-
-
 # =============================================================================
 # ## Plot mid height values like (Guzman, 2021) ##
 # 
@@ -786,4 +783,3 @@ plt.show()
 # plt.legend()
 # plt.show()
 # =============================================================================
-

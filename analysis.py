@@ -21,18 +21,28 @@ from scipy import stats
 from colours import*
 import subprocess
 
+# =============================================================================
+# Extract the docopt arguments 
+# =============================================================================
+
 args = docopt(__doc__)
 dir = str(args['--dir'])
 transient = int(args['--t'])
 fig_bool = int(args['--fig'])
 snap_t = int(args['--snap_t'])
 
-## Prevent the plots ##
+# =============================================================================
+# Define boolean arguments for use later
+# =============================================================================
+
 if fig_bool == 0:
     fig_bool = False
 else:
     fig_bool = True
 
+# =============================================================================
+# Define some empty lists which shall store data for later
+# =============================================================================
 
 ThermalBoundary = []
 ViscousBoundary = []
@@ -56,12 +66,16 @@ Energy_Balance = []
 D_viscosity = []
 upper_thermal_boundary = []
 
+# =============================================================================
+# Extract run information
+# =============================================================================
+
 for idx,lines in enumerate(dir.split('/')[1].split('_')):
     if idx == 1:
         Ra = float(lines.replace('-','.'))
     if idx == 3:
         a,b,c,d,e,f,g,h = lines
-        Ek = float(a+'.'+c+d+'e-'+g+h) ## This code is awful change it at some point ##
+        Ek = float(a+'.'+c+d+'e-'+g+h) 
     if idx == 5:
         Pr = float(lines.replace('-','.'))
     if idx == 7:
@@ -71,16 +85,32 @@ Ny = Nx
 Nz = Nx/2
 Lx = Nx/Nz
 
-onlyfiles = [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
-file = dir + '/' + onlyfiles[0]
+# =============================================================================
+# Find the name of the log file ans store it in fileName
+# =============================================================================
 
-log_file = open(file, 'r')
-contents = log_file.read().split('\n')
+onlyfiles = [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
+fileName = dir + '/' + onlyfiles[0]
+
+# =============================================================================
+# Extract the data from the log file
+# =============================================================================
+
+logFile = open(fileName, 'r')
+logFileContents = logFile.read().split('\n')
+
+# =============================================================================
+# Check if an image directory already exsists, if not create one
+# =============================================================================
 
 if os.path.isdir(dir+'/img') == True:
     pass
 else:
     os.system('mkdir {}/img'.format(dir))
+    
+# =============================================================================
+# Fill up the arrays with data from the log file
+# =============================================================================
 
 for idx,lines in enumerate(contents):
     if idx != 0 or idx != 1:
@@ -101,7 +131,11 @@ for idx,lines in enumerate(contents):
             D_viscosity.append(float(lines.split()[13]))
         except:
             pass
-#Energy_Balance.append(Energy_Balance[-1]) ## Compensating for the removal of the Na for plotting later on ##
+
+# =============================================================================
+# Extract the energy balance from the log file
+# =============================================================================
+
 E_B = np.array(Energy_Balance)
 E_B[E_B == np.inf] = 0
 Energy_Balance = E_B[np.logical_not(np.isnan(E_B))]

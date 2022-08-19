@@ -245,6 +245,40 @@ def plotASlice(Field):
     plt.savefig('{}/img/plotASlice.eps'.format(dir), dpi=500)
     plt.show()
 
+def plotMidPlane(Field):
+    """ 
+    Parameters
+    ----------
+    Field : Dedalus Field object
+
+    Raises
+    ------
+    Must be working with 3D data.
+
+    Returns
+    -------
+    None.
+    
+    Notes
+    -----
+    Created a imshow plot of the mid section of the domain.
+    """
+
+    realFieldData = Field['g']
+    fieldName = Field.name
+    midPoint = np.shape(realFieldData)[-1] // 2
+
+    if len(np.shape(realFieldData)) != 3:
+        raise Exception('Expecting 3d data.')
+    
+    rotatedData = np.rot90(realFieldData, k=1, axes = (2,0))
+    midPointSlice = rotatedData[midPoint]
+    fig = plt.figure(figsize = (6,6))
+    plt.xticks([])
+    plt.yticks([])
+    plt.imshow(midPointSlice, cmap = 'bwr', interpolation = 'gaussian')
+    plt.show()
+    
 def compareSpectrum(Field):
     """
     
@@ -738,6 +772,8 @@ ACoriolisProfile = np.average(np.array(horizontalAvgACoriolisTimeSeries), axis=0
 # =============================================================================
 
 plotASlice(W)
+
+plotMidPlane(Temperature)
 
 fig = plt.figure(figsize=(10,10))
 plt.plot(range(len(ViscositySpectrum)), ViscositySpectrum, label = '$F_v$', color = ViscosityColour, lw=spectrumlw)

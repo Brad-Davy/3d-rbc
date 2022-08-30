@@ -112,7 +112,7 @@ else:
 # Fill up the arrays with data from the log file
 # =============================================================================
 
-for idx,lines in enumerate(contents):
+for idx,lines in enumerate(logFileContents):
     if idx != 0 or idx != 1:
         try:
             Time.append(float(lines.split()[0]))
@@ -140,7 +140,7 @@ E_B = np.array(Energy_Balance)
 E_B[E_B == np.inf] = 0
 Energy_Balance = E_B[np.logical_not(np.isnan(E_B))]
 Balance = np.average(Energy_Balance[-transient:])*100
-log_file.close()
+logFile.close()
 
 
 ## Deal with the analysis tasks to calculate boundary layers ##

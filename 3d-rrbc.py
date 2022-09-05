@@ -1,17 +1,19 @@
 """ Dedalus simulation of 3d Rayleigh benard rotating convection.
 
 Usage:
-    3d-rrbc.py [--ra=<rayleigh>] [--ek=<ekman>] [--N=<resolution>] [--max_dt=<Maximum_dt>]  [--init_dt=<Initial_dt>] [--pr=<prandtl>] [--mesh=<mesh>]
+    3d-rrbc.py [--ra=<rayleigh>] [--ek=<ekman>] [--N=<resolution>] [--max_dt=<Maximum_dt>]  [--init_dt=<Initial_dt>] [--pr=<prandtl>] [--mesh=<mesh>] [--Gamma=<Gamma>] [--snap_t=<snap_t>]
     3d-rrbc.py -h | --help
 Options:
     -h --help               Display this help message
     --ra=<rayliegh>         Rayleigh number [default: 3.3e5]
     --ek=<ekman>            Ekman number [default: 1e-3]
-    --N=<resolution>        Nx=Ny=2Nz [default: 128]
+    --N=<resolution>        Nx=Ny=2Nz [default: 64]
     --max_dt=<Maximum_dt>   Maximum Time Step [default: 1e-3]
     --pr=<prandtl>          Prandtl number [default: 7]
     --mesh=<mesh>           Parallel mesh [default: None]
     --init_dt=<Initial_dt>  Initial Time Step [default: 1e-3]
+    --Gamma=<Gamma>	    Aspect ratio [default: 2]
+    --snap_t=<snap_t>       Iterations per snapshot [default: 10000] 
 """
 
 from mpi4py import MPI
@@ -37,14 +39,15 @@ comm = MPI.COMM_WORLD
 # =============================================================================
 
 N = int(args['--N'])
+aspectRatio = float(args['--Gamma'])
 Nx = Ny = N
-Nz = int(N/2)
+Nz = int(N/aspectRatio)
 
 # =============================================================================
 # Set the aspect ratio 
 # =============================================================================
 
-Lx = Ly = 2
+Lx = Ly = aspectRatio
 Lz = 1
 
 # =============================================================================
@@ -56,6 +59,7 @@ Ekman = float(args['--ek'])
 Prandtl = float(args['--pr'])
 max_dt = float(args['--max_dt'])
 init_dt = float(args['--init_dt'])
+snap_t = int(args['--snap_t'])
 
 # =============================================================================
 # Format the mesh input
@@ -78,7 +82,7 @@ sim_wall_time = 24*60*60*24
 # Set the file names 
 # =============================================================================
 
-file_tag="Ra_{:.2e}_Ek_{:.2e}_Pr_{}_N_{}_".format(Rayleigh,Ekman,Prandtl,N)
+file_tag="Ra_{:.2e}_Ek_{:.2e}_Pr_{}_N_{}_Asp_{}".format(Rayleigh, Ekman, Prandtl, N, aspectRatio)
 file_tag=file_tag.replace(".","-")
 
 # =============================================================================
@@ -187,7 +191,7 @@ solver.stop_iteration = max_iterations
 # Snapshots of the entire domain
 # =============================================================================
 
-snap = solver.evaluator.add_file_handler('results/{}/{}snapshots'.format(file_tag,file_tag), iter = 5000, max_writes = 20)
+snap = solver.evaluator.add_file_handler('results/{}/{}snapshots'.format(file_tag,file_tag), iter = snap_t, max_writes = 20)
 snap.add_system(solver.state)
 snap.add_task("u*u + v*v + w*w", layout = 'c', name = 'kinetic_spectrum')
 
@@ -257,6 +261,15 @@ snap.add_task("-(u*dx(w_3) + v*dy(w_3) + w*w_3_z)", name = 'vorticity_z_inertia'
 snap.add_task("(Pr/Ek)*wz", name = 'vorticity_z_coriolis')
 
 # =============================================================================
+# Energy equation
+# =============================================================================
+
+snap.add_task("-u*(u*dx(u) + v*dy(u) + w*uz) - v*(u*dx(v) + v*dy(v) + w*vz) - w*(u*dx(w) + v*dy(w) + w*wz)", name = 'inertia_energy')
+snap.add_task("Ra*Pr*w*T", name = 'buoyancy_energy')
+snap.add_task("-u*dx(p) - v*dy(p) - w*dz(p)", name = 'pressure_energy')
+snap.add_task("Pr*( u*(dx(dx(u)) + dy(dy(u)) + dz(uz)) + v*(dx(dx(v)) + dy(dy(v)) + dz(vz)) + w*(dx(dx(w)) + dy(dy(w)) + dz(wz)) )", name = 'diffusion_energy')
+
+# =============================================================================
 # Dedalus analysis files containing integral properties of the system
 # =============================================================================
 
@@ -275,7 +288,6 @@ analysis.add_task("sqrt((1/Lx)*integ((1/Ly)*integ(u*u + v*v + w*w,'y'),'x'))", n
 analysis.add_task("(1/Pr)*(1/Lx)*integ((1/Ly)*integ( sqrt(u*u + v*v + w*w),'y'),'x')", name = "Re_prof")
 analysis.add_task("(1/Lx)*integ((1/Ly)*integ( sqrt(u*u + v*v),'y'),'x')", name = "U_H_prof")
 analysis.add_task("-(1/(Lz*Lx*Ly))*integ(u*(dx(dx(u))+dy(dy(u))+dz(uz))+ v*(dx(dx(v))+dy(dy(v))+dz(vz)) + w*(dx(dx(w))+dy(dy(w))+dz(wz)))", name = "dissip")
-#analysis.add_task("(1/Lz)*integ((1/Ly)*integ((1/Lx)*integ( Ra * w * T,'x'),'y'),'z')",name = "buoyancy")
 analysis.add_task("(Ra/(Lx*Ly*Lz))*integ(w*T - dz(T))",name = "buoyancy")
 analysis.add_task("(1/(Lz*Ly*Lx))*integ((dy(w)-vz)**2 + (uz-dx(w))**2 + (dx(v)-dy(u))**2)", name = "D_visc")
 analysis.add_task("z", name = "z")
@@ -306,7 +318,6 @@ flow.add_property("interp(interp(interp(T,x=1),y=1),z=-0.5)", name = "T_bot")
 flow.add_property("interp(interp(interp(T,x=1),y=1),z=0.5)", name = "T_top")
 flow.add_property("interp(interp(interp(T,x=1),y=1),z=0)", name = "T_mid")
 flow.add_property("-(1/(Lz*Ly*Lx))*integ(u*(dx(dx(u))+dy(dy(u))+dz(uz)) + v*(dx(dx(v))+dy(dy(v))+dz(vz)) + w*(dx(dx(w))+dy(dy(w))+dz(wz)))", name = "dissip")
-#flow.add_property("(1/Lz)*integ((1/Ly)*integ((1/Lx)*integ( Ra * w * T,'x'),'y'),'z')",name = "buoyancy")
 flow.add_property("(Ra/(Lx*Ly*Lz))*integ(w*T - dz(T))",name = "buoyancy")
 flow.add_property("(1/Lz)*integ((1/Ly)*integ((1/Lx)*integ((dy(w)-vz)**2 + (uz-dx(w))**2 + (dx(v)-dy(u))**2,'x'),'y'),'z')", name = "D_visc")
 flow.add_property("u", name = 'u')
@@ -341,7 +352,7 @@ try:
         if (solver.iteration-1) % 10 == 0:
             logger.info(" ")
             logger.info("-"*60)
-            logger.info("Ra:{:.4e}, Ek:{:.4e}, Pr:{:.4e}, N:{}".format(Rayleigh, Ekman, Prandtl, N))
+            logger.info("Ra:{:.4e}, Ek:{:.4e}, Pr:{:.4e}, N:{}, Gamma:{}".format(Rayleigh, Ekman, Prandtl, N, aspectRatio))
             logger.info("-"*60)
             logger.info('Iteration: %i, Time: %e, dt: %e, Convective time: %f' %(solver.iteration, solver.sim_time, dt,solver.sim_time*np.sqrt(Rayleigh*Prandtl)))
             logger.info("Re:{:.4e}, Pe:{:.4f}, Max T:{:.4f}, Max P:{:.4e}".format(flow.max('Re'), flow.max('Pe'), flow.max('temperature'), flow.max('pressure')))

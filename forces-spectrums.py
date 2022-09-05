@@ -164,14 +164,22 @@ with h5py.File('{}{}/snapshots.h5'.format(dir,snapshot_file_name), mode = 'r') a
     vorticity_z_diffusion = np.copy(file['tasks']["vorticity_z_diffusion"])[-snap_t:,:,:,:]
     vorticity_z_inertia = np.copy(file['tasks']["vorticity_z_inertia"])[-snap_t:,:,:,:]
     vorticity_z_coriolis = np.copy(file['tasks']["vorticity_z_coriolis"])[-snap_t:,:,:,:]
-    
+
+    # =========================================================================
+    # Energy equation
+    # =========================================================================
+
+    energy_diffusion = np.copy(file['tasks']["diffusion_energy"])[-snap_t:,:,:,:]
+    energy_inertia = np.copy(file['tasks']["inertia_energy"])[-snap_t:,:,:,:]
+    energy_buoyancy = np.copy(file['tasks']["buoyancy_energy"])[-snap_t:,:,:,:]
+    energy_pressure = np.copy(file['tasks']["pressure_energy"])[-snap_t:,:,:,:]
 
 # =============================================================================
 # All my functions which I use through out the script
 # =============================================================================
 
 def findIntersection(arrOne, arrTwo):
-    """
+    """ 
     
 
     Parameters
@@ -276,12 +284,15 @@ def plotMidPlane(Field):
     fig = plt.figure(figsize = (6,6))
     plt.xticks([])
     plt.yticks([])
+#    plt.title('Temperature Perturbations at $z = 0$')
     plt.imshow(midPointSlice, cmap = 'bwr', interpolation = 'gaussian')
+#    plt.colorbar()
+    plt.savefig('{}/img/plotMidPointSlice.eps'.format(dir), dpi=500)
     plt.show()
     
 def compareSpectrum(Field):
-    """
-    
+    """ 
+     
 
     Parameters
     ----------
@@ -490,6 +501,16 @@ Buoyancy = domain.new_field(name='buoyancy')
 Pressure = domain.new_field(name='pressure')
 
 # =============================================================================
+# Momentum Equation
+# =============================================================================
+
+energyDiffusion = domain.new_field(name='diffusionEnergy')
+energyInertia = domain.new_field(name='inertiaEnergy')
+energyBuoyancy = domain.new_field(name='buoyancyEnergy')
+energyPressure = domain.new_field(name='pressureEnergy')
+
+
+# =============================================================================
 # Full Vorticity Equation
 # =============================================================================
 
@@ -571,6 +592,11 @@ UTimeSeries = []
 VTimeSeries = []
 WTimeSeries = []
 
+energyDiffusionTimeSeries = []
+energyBuoyancyTimeSeries = []
+energyInertiaTimeSeries = []
+energyPressureTimeSeries = []
+
 vorticityViscosityTimeSeries = []
 vorticityCoriolisTimeSeries = []
 vorticityBuoyancyTimeSeries = []
@@ -640,10 +666,19 @@ for idx in range(1,snap_t+1):
     xyVorticityInertia['g'] = computeRMS(vorticity_x_inertia[-idx], vorticity_y_inertia[-idx], blankMatrix)
     xyVorticityBuoyancy['g'] = computeRMS(vorticity_x_bouyancy[-idx], vorticity_y_bouyancy[-idx], blankMatrix)
 
+    energyDiffusion['g'] = energy_diffusion[-idx]
+    energyBuoyancy['g'] = energy_buoyancy[-idx]
+    energyPressure['g'] = energy_pressure[-idx]
+    energyInertia['g'] = energy_inertia[-idx]
+
     # =========================================================================
     # Remove the boundaries
     # =========================================================================
     
+    removeBoundaries(Mask, energyDiffusion)
+    removeBoundaries(Mask, energyPressure)
+    removeBoundaries(Mask, energyInertia)
+    removeBoundaries(Mask, energyBuoyancy)
     removeBoundaries(Mask, Viscosity)
     removeBoundaries(Mask, Pressure)
     removeBoundaries(Mask, Coriolis)
@@ -690,6 +725,11 @@ for idx in range(1,snap_t+1):
     vorticityCoriolisTimeSeries.append(computeSpectrum(vorticityCoriolis))
     vorticityInertiaTimeSeries.append(computeSpectrum(vorticityInertia))
     vorticityBuoyancyTimeSeries.append(computeSpectrum(vorticityBuoyancy))
+
+    energyDiffusionTimeSeries.append(computeSpectrum(energyDiffusion))
+    energyInertiaTimeSeries.append(computeSpectrum(energyInertia))
+    energyBuoyancyTimeSeries.append(computeSpectrum(energyBuoyancy))
+    energyPressureTimeSeries.append(computeSpectrum(energyPressure))
 
     xVorticityViscosityTimeSeries.append(computeSpectrum(xVorticityViscosity))
     xVorticityCoriolisTimeSeries.append(computeSpectrum(xVorticityCoriolis))
@@ -756,6 +796,11 @@ xyVorticityInertiaSpectrum = np.average(np.array(xyVorticityInertiaTimeSeries), 
 xyVorticityBuoyancySpectrum = np.average(np.array(xyVorticityBuoyancyTimeSeries), axis=0)
 xyVorticityCoriolisSpectrum = np.average(np.array(xyVorticityCoriolisTimeSeries), axis=0)
 
+energyDiffusionSpectrum = np.average(np.array(energyDiffusionTimeSeries), axis=0)
+energyInertiaSpectrum = np.average(np.array(energyInertiaTimeSeries), axis=0)
+energyBuoyancySpectrum = np.average(np.array(energyBuoyancyTimeSeries), axis=0)
+energyPressureSpectrum = np.average(np.array(energyPressureTimeSeries), axis=0)
+
 # =============================================================================
 # Time avg the profiles
 # =============================================================================
@@ -799,6 +844,22 @@ legend_properties = {'weight':'bold'}
 plt.title('Force Spectra')
 plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
 plt.savefig('{}/img/ForceSpectrum.eps'.format(dir), dpi=500)
+plt.show()
+
+fig = plt.figure(figsize=(10,10))
+plt.plot(range(len(ViscositySpectrum)), energyDiffusionSpectrum, label = '$E_v$', color = ViscosityColour, lw = spectrumlw)
+plt.plot(range(len(InertiaSpectrum)), energyInertiaSpectrum, label = '$E_I$', color = InertiaColour, lw = spectrumlw)
+plt.plot(range(len(BuoyancySpectrum)), energyBuoyancySpectrum, label = '$E_B$', color = BuoyancyColour, lw = spectrumlw)
+plt.plot(range(len(BuoyancySpectrum)), energyPressureSpectrum, label = '$E_P$', color = PressureColour, lw = spectrumlw)
+plt.xscale("log")
+plt.yscale("log")
+plt.xlabel('$K_z$')
+plt.ylabel('Magnitude')
+plt.xlim(1,64)
+legend_properties = {'weight':'bold'}
+plt.title('Force Spectra')
+plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
+plt.savefig('{}/img/energySpectrum.eps'.format(dir), dpi=500)
 plt.show()
 
 fig = plt.figure(figsize=(10,10))
@@ -887,22 +948,20 @@ plt.show()
 
 print('The max wavenumber for k.e: {}, u: {}, v: {}, w: {}.'.format(np.argmax(KineticSpectrum[:64]), np.argmax(USpectrum[:64]), np.argmax(VSpectrum[:64]), np.argmax(WSpectrum[:64])))
 
-# =============================================================================
-# fig = plt.figure(figsize=(12,6))
-# plt.plot(range(len(ViscositySpectrum)), KineticSpectrum, lw = 2, color = ViscosityColour, label = 'K.e')
-# plt.plot(range(len(ViscositySpectrum)), USpectrum, lw = 2, color = CoriolisColour, label = 'u')
-# plt.plot(range(len(ViscositySpectrum)), VSpectrum, lw = 2, color = PressureColour, label = 'v')
-# plt.plot(range(len(ViscositySpectrum)), WSpectrum, lw = 2, color = ACColour, label = 'w')
-# plt.xscale("log")
-# plt.yscale("log")
-# plt.xlabel('$K_z$')
-# plt.ylabel('Magnitude')
-# plt.xlim(1,64)
-# legend_properties = {'weight':'bold'}
-# plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
-# plt.savefig('{}/img/KineticSpectrum.eps'.format(dir), dpi=500)
-# plt.show()
-# =============================================================================
+fig = plt.figure(figsize=(12,6))
+plt.plot(range(len(ViscositySpectrum)), KineticSpectrum, lw = 2, color = ViscosityColour, label = 'K.e')
+plt.plot(range(len(ViscositySpectrum)), USpectrum, lw = 2, color = CoriolisColour, label = 'u')
+plt.plot(range(len(ViscositySpectrum)), VSpectrum, lw = 2, color = PressureColour, label = 'v')
+plt.plot(range(len(ViscositySpectrum)), WSpectrum, lw = 2, color = ACColour, label = 'w')
+plt.xscale("log")
+plt.yscale("log")
+plt.xlabel('$K_z$')
+plt.ylabel('Magnitude')
+plt.xlim(1,64)
+legend_properties = {'weight':'bold'}
+plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
+plt.savefig('{}/img/KineticSpectrum.eps'.format(dir), dpi=500)
+plt.show()
 
 # =============================================================================
 # Plot the horizontal profiles 

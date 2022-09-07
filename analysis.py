@@ -1,15 +1,15 @@
 """Analysis file of 3d rotating rayleigh benard convection
 
 Usage:
-    analysis.py --dir=<directory> [--t=<transient> --fig=<Figure> --snap_t=<Snapshot_transient>]
+    analysis.py --dir=<directory> [--t=<transient> --fig=<Figure> --snap_t=<snap_t>]
     analysis.py -h | --help
 
 Options:
     -h --help   			Display this help message
     --dir=<directory>        		Directory
-    --t=<transient>   			Transient to be ignored [default: 2000]
+    --t=<transient>   			Transient to be ignored [default: 500]
     --fig=<Figure>    			Produce Figures [default: 0]
-    --snap_t=<Snapshot_transient>	Snapshots to be ignored [default: 10]
+    --snap_t=<snap_t>	                Snapshots to be ignored [default: 2]
 """
 
 from docopt import docopt
@@ -262,7 +262,7 @@ print('\n')
 #print('Bottom Nusselt: {:.3f}, std = {:.3f}.'.format(np.average(Nu_bottom[-transient:]),np.std(Nu_bottom[-transient:])))
 #print('Midplane Nusselt: {:.3f}, std = {:.3f}.'.format(np.average(Nu_midplane[-transient:]),np.std(Nu_midplane[-transient:])))
 #print('Max Velocities: u = {:.3f}, v = {:.3f}, w = {:.3f}.'.format(np.average(u_max), np.average(v_max), np.average(w_max)))
-#print('Buoyancy = {:.4e}, Dissipation = {:.4e}, Energy Balance = {:.3f}%.'.format(np.average(Buoyancy), np.average(Dissipation), Balance))
+print('Buoyancy = {:.4e}, Dissipation = {:.4e}, Energy Balance = {:.3f}%.'.format(np.average(Buoyancy[-transient:]), np.average(Dissipation[-transient:]), Balance))
 #print('Using (Long,2020) upper: {:.4f}, lower: {:.4f}, avg: {:.4f}, points in boundary: {}.'.format(np.average(ThermalBoundary),np.average(upper_thermal_boundary),(np.average(ThermalBoundary)+np.average(upper_thermal_boundary))/2, points_in_dt))
 #print('The average viscous boundary layer thickness is {:.4f}, and there are {} points in the boundary.'.format(avg_viscous_boundary, avg_points))
 #print('Using the T rms method, upper: {:.5f}, lower: {:.5f}, avg: {:.5f} and number of points {}.'.format(0.5-upper_trms,0.5+lower_trms,avg_trms,points_trms))

@@ -16,65 +16,88 @@ import h5py
 import numpy as np
 import os
 
+# =============================================================================
+# Set some H5 relevant parameters 
+# =============================================================================
+
 H5_FIELD_PATH = 'tasks/'
 H5_SCALE_PATH = 'scales/'
 H5_DIM_LABEL = 'DIMENSION_LABELS'
 H5_STR_DECODE = 'UTF-8'
 
-if __name__ == "__main__":
-    args = docopt(__doc__ )
-    nt = int(args['--nt'])
-    fields = args['--fields']
-    dir = str(args['--dir'])
+# =============================================================================
+# Extract the docopt arguments 
+# =============================================================================
 
-    # =============================================================================
-    # Extract the snapshot filename 
-    # =============================================================================
+args = docopt(__doc__ )
+nt = int(args['--nt'])
+fields = args['--fields']
+directory = str(args['--dir'])
 
-    for idx,lines in enumerate(os.listdir(dir)):
-        if lines.find('snapshot') != -1:
-            snapshotDirectory = os.listdir(dir)[idx]
+def main():
+    """
     
-    infile = dir + snapshotDirectory + '/snapshots.h5'
-    outfile = dir + dir.split('/')[1]
-    print(outfile)
+
+    Returns
+    -------
+    None.
+    
+    Notes
+    -----
+    Function which generates a vtr file from h5 data.
+
+    """
+    
+
+    # =========================================================================
+    # Extract the snapshot filename 
+    # =========================================================================
+
+    for idx,lines in enumerate(os.listdir(directory)):
+        if lines.find('snapshot') != -1:
+            snapshotDirectory = os.listdir(directory)[idx]
+    
+    # =========================================================================
+    # Set the input and output filenames
+    # =========================================================================
+    
+    infile = directory + snapshotDirectory + '/snapshots.h5'
+    outfile = directory + directory.split('/')[1]
+
     if fields is None:
         raise ValueError("Must specify fields to copy.")
 
     fields = fields.split(',')
-    print("fields = {}".format(fields))
-
-    print("outfile = {}".format(outfile))
-
-    datafile = h5py.File(infile,"r")
+    dataFile = h5py.File(infile,"r")
 
     field_names = [H5_FIELD_PATH+f for f in fields]
-    dim_labels = datafile[field_names[0]].attrs[H5_DIM_LABEL][1:]
+    dim_labels = dataFile[field_names[0]].attrs[H5_DIM_LABEL][1:]
 
     if len(dim_labels) != 3:
         raise NotImplementedError("hdf2vtk only supports 3D data.")
 
     scale_names = []
-    print("#####################################")
+    
+    print("#"*20)
     for d in dim_labels:
-        
         print(H5_SCALE_PATH)
         scale_names.append(H5_SCALE_PATH+d)
-    print("#####################################")
-    
-    #scale_names = [H5_SCALE_PATH+d.decode(H5_STR_DECODE) for d in dim_labels]
-    # just get first scale you find...
-    grid_scale = list(datafile[scale_names[0]].keys())[0]
+    print("#"*20)
+
+    grid_scale = list(dataFile[scale_names[0]].keys())[0]
     scale_names = [sn+'/'+grid_scale for sn in scale_names]
-    x = plot_tools.get_1d_vertices(datafile[scale_names[0]][:])
-    y = plot_tools.get_1d_vertices(datafile[scale_names[1]][:])
-    z = plot_tools.get_1d_vertices(datafile[scale_names[2]][:])
+    x = plot_tools.get_1d_vertices(dataFile[scale_names[0]][:])
+    y = plot_tools.get_1d_vertices(dataFile[scale_names[1]][:])
+    z = plot_tools.get_1d_vertices(dataFile[scale_names[2]][:])
 
     cellData = {}
     for i, f in enumerate(fields):
-        #cellData[f] = np.asfortranarray(datafile[field_names[i]][nt])
         cellData[f] = datafile[field_names[i]][nt]
 
-    print(outfile)
 
     gridToVTK(outfile, x, y, z, cellData = cellData)
+
+
+if __name__ == "__main__":
+    main()
+

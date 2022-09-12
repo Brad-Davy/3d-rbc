@@ -25,17 +25,8 @@ H5_SCALE_PATH = 'scales/'
 H5_DIM_LABEL = 'DIMENSION_LABELS'
 H5_STR_DECODE = 'UTF-8'
 
-# =============================================================================
-# Extract the docopt arguments 
-# =============================================================================
-
-args = docopt(__doc__ )
-nt = int(args['--nt'])
-fields = args['--fields']
-directory = str(args['--dir'])
-
 def main():
-    """
+    """ 
     
 
     Returns
@@ -47,7 +38,15 @@ def main():
     Function which generates a vtr file from h5 data.
 
     """
-    
+
+    # =============================================================================
+    # Extract the docopt arguments 
+    # =============================================================================
+
+    args = docopt(__doc__ )
+    nt = int(args['--nt'])
+    fields = args['--fields']
+    directory = str(args['--dir'])    
 
     # =========================================================================
     # Extract the snapshot filename 
@@ -92,7 +91,7 @@ def main():
 
     cellData = {}
     for i, f in enumerate(fields):
-        cellData[f] = datafile[field_names[i]][nt]
+        cellData[f] = dataFile[field_names[i]][nt]
 
 
     gridToVTK(outfile, x, y, z, cellData = cellData)

@@ -1,14 +1,13 @@
 """Analysis file of 3d rotating rayleigh benard convection
 
 Usage:
-    plot-txt-file.py --dir=<directory> [--t=<transient> --fig=<Figure>]
+    plot-txt-file.py --dir=<directory> [--t=<transient>]
     plot-txt-file.py -h | --help
 
 Options:
-    -h --help   		          	 Display this help message
-    --dir=<directory>        		 Directory
-    --t=<transient>   			     Transient to be ignored [default: 2000]
-    --fig=<Figure>    			     Produce Figures [default: 1]
+    -h --help   		  Display this help message
+    --dir=<directory>             Directory
+    --t=<transient>               Transient to be ignored [default: 2000]
 """
 
 from docopt import docopt
@@ -23,15 +22,9 @@ import subprocess
 args = docopt(__doc__)
 dir = str(args['--dir'])
 transient = int(args['--t'])
-fig_bool = int(args['--fig'])
+lineWidth = 2
 
-## Prevent the plots ##
-if fig_bool == 0:
-    fig_bool = False
-else:
-    fig_bool = True
-    
-    
+
 ThermalBoundary = []
 ViscousBoundary = []
 Points_in_thermal_boundary = []
@@ -70,10 +63,14 @@ Nz = Nx/2
 Lx = Nx/Nz
 
 
-onlyfiles = [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
-file = dir + '/' + onlyfiles[0]
+onlyFiles = [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
 
-log_file = open(file, 'r')
+for lines in onlyFiles:
+
+    if lines.find('.txt') != 1:
+        logFile = dir + '/' + lines
+
+log_file = open(logFile, 'r')
 contents = log_file.read().split('\n')
 
 if os.path.isdir(dir+'/img') == True:
@@ -103,64 +100,71 @@ for idx,lines in enumerate(contents):
             pass
         
 Time = np.array(Time)
-if fig_bool == True:
+iterations = len(Time)*10
+lastSnapShot = iterations - (iterations % 5000) + 5000
+snapShots = [Time[int(snaps/10)]*np.sqrt(Ra*Pr) for snaps in range(lastSnapShot - 25000, lastSnapShot, 5000)]
 
-    print('The output is set to plot, creating figures in directory {}img.'.format(dir))
-    Nusselt_fig = plt.figure(figsize = (12,6))
-    plt.plot(Time*np.sqrt(Ra*Pr), Nu_integral, label = '$Nu_I$', color = CB91_Blue)
-    plt.plot(Time*np.sqrt(Ra*Pr), Nu_bottom, label = '$Nu_b$', color = CB91_Violet)
-    plt.plot(Time*np.sqrt(Ra*Pr), Nu_top, label = '$Nu_t$', color = CB91_Amber)
-   # plt.plot(Time*np.sqrt(Ra*Pr), Nu_midplane, label = 'Midplane Nusselt')
-    plt.xlabel('Time')
-    plt.ylabel('Nusselt Number')
-    plt.legend(frameon = False, ncol = 2)
-    #plt.show()
-    plt.savefig('{}img/Nusselt.eps'.format(dir), dpi = 500)
+for i in range(lastSnapShot - 25000, lastSnapShot, 5000):
+    print(i)
 
-    Nu_error_fig = plt.figure(figsize = (10,10))
-    plt.plot(Time*np.sqrt(Ra*Pr), Nu_Error)
-    plt.xlabel('Time')
-    plt.ylabel('Nusselt Error')
-    #plt.show()
-    plt.savefig('{}img/Nusselt_error.eps'.format(dir), dpi = 500)
+print('The output is set to plot, creating figures in directory {}img.'.format(dir))
+Nusselt_fig = plt.figure(figsize = (12,6))
+plt.plot(Time*np.sqrt(Ra*Pr), Nu_integral, label = '$Nu_I$', color = CB91_Blue, lw = lineWidth)
+plt.plot(Time*np.sqrt(Ra*Pr), Nu_bottom, label = '$Nu_b$', color = CB91_Violet, lw = lineWidth)
+plt.plot(Time*np.sqrt(Ra*Pr), Nu_top, label = '$Nu_t$', color = CB91_Amber, lw = lineWidth)
 
-    E_balance_fig = plt.figure(figsize = (10,10))
-    plt.plot(Time*np.sqrt(Ra*Pr), Energy_Balance)
-    plt.xlabel('Time')
-    plt.ylabel('Energy Balance')
-    #plt.show()
-    plt.savefig('{}img/Energy_Balance.eps'.format(dir), dpi = 500)
+for snaps in snapShots:
+    plt.plot(np.ones(100)*snaps, np.linspace(0, max(Nu_integral), 100),'k--', lw = 1)
 
-    Velocity_fig = plt.figure(figsize = (10,10))
-    plt.plot(Time*np.sqrt(Ra*Pr), u_max, label = 'u')
-    plt.plot(Time*np.sqrt(Ra*Pr), v_max, label = 'v')
-    plt.plot(Time*np.sqrt(Ra*Pr), w_max, label = 'w')
-    plt.legend()
-    plt.xlabel('Time')
-    #plt.show()
-    plt.savefig('{}img/Max_Velocity.eps'.format(dir), dpi = 500)
+plt.xlabel('Time')
+plt.ylabel('Nusselt Number')
+plt.title('Nusselt Number Comparison')
+plt.legend(frameon = False, ncol = 2)
+plt.savefig('{}img/Nusselt.eps'.format(dir), dpi = 500)
 
-    Buoyancy_dissipation_fig = plt.figure(figsize = (10,10))
-    plt.plot(Time*np.sqrt(Ra*Pr), Buoyancy, label = 'Buoyancy')
-    plt.plot(Time*np.sqrt(Ra*Pr), Dissipation, label = 'Dissipation')
-    plt.legend()
-    plt.xlabel('Time')
-    #plt.show()
-    plt.savefig('{}img/Buoyancy_Dissipation.eps'.format(dir), dpi = 500)
+Velocity_fig = plt.figure(figsize = (12,6))
+plt.plot(Time*np.sqrt(Ra*Pr), u_max, label = 'u', color = CB91_Blue, lw = lineWidth)
+plt.plot(Time*np.sqrt(Ra*Pr), v_max, label = 'v', color = CB91_Violet, lw = lineWidth)
+plt.plot(Time*np.sqrt(Ra*Pr), w_max, label = 'w', color = CB91_Amber, lw = lineWidth)
 
-    Re_fig = plt.figure(figsize = (10,10))
-    plt.plot(Time*np.sqrt(Ra*Pr), Re)
-    plt.xlabel('Time')
-    plt.ylabel('Reynolds Number')
-    #plt.show()
-    plt.savefig('{}img/Reynolds.eps'.format(dir), dpi = 500)
+for snaps in snapShots:
+    plt.plot(np.ones(100)*snaps, np.linspace(0, max(u_max), 100),'k--', lw = 1)
 
-    D_viscosity_fig = plt.figure(figsize = (10,10))
-    plt.plot(Time*np.sqrt(Ra*Pr), D_viscosity)
-    plt.xlabel('Time')
-    plt.ylabel('Viscous Dissipation')                  
-    plt.show()
-    plt.savefig('{}img/D_viscosity.eps'.format(dir), dpi = 500)
+plt.legend(frameon = False, ncol = 2)
+plt.xlabel('Time')
+plt.savefig('{}img/Max_Velocity.eps'.format(dir), dpi = 500)
+
+Buoyancy_dissipation_fig = plt.figure(figsize = (12,6))
+plt.plot(Time*np.sqrt(Ra*Pr), Buoyancy, label = 'Buoyancy', lw = lineWidth, color = CB91_Blue)
+plt.plot(Time*np.sqrt(Ra*Pr), Dissipation, label = 'Dissipation', lw = lineWidth, color = CB91_Amber)
+
+for snaps in snapShots:
+    plt.plot(np.ones(100)*snaps, np.linspace(0, max(Buoyancy), 100),'k--', lw = 1)
+
+plt.legend(frameon = False, ncol = 2)
+plt.xlabel('Time')
+plt.savefig('{}img/Buoyancy_Dissipation.eps'.format(dir), dpi = 500)
+
+Re_fig = plt.figure(figsize = (12,6))
+
+for snaps in snapShots:
+    plt.plot(np.ones(100)*snaps, np.linspace(0, max(Nu_integral), 100),'k--', lw = 1)
+
+plt.plot(Time*np.sqrt(Ra*Pr), Re, lw = lineWidth, color = CB91_Blue)
+plt.xlabel('Time')
+plt.ylabel('Reynolds Number')
+plt.savefig('{}img/Reynolds.eps'.format(dir), dpi = 500)
+
+D_viscosity_fig = plt.figure(figsize = (12,6))
+plt.plot(Time*np.sqrt(Ra*Pr), D_viscosity, lw = lineWidth, color = CB91_Blue)
+
+for snaps in snapShots:
+    plt.plot(np.ones(100)*snaps, np.linspace(0, max(D_viscosity), 100),'k--', lw = 1)
+
+plt.xlabel('Time')
+plt.ylabel('Viscous Dissipation')                  
+plt.show()
+plt.savefig('{}img/D_viscosity.eps'.format(dir), dpi = 500)
 
 
 

@@ -164,15 +164,7 @@ with h5py.File('{}{}/snapshots.h5'.format(dir,snapshot_file_name), mode = 'r') a
     vorticity_z_diffusion = np.copy(file['tasks']["vorticity_z_diffusion"])[-snap_t:,:,:,:]
     vorticity_z_inertia = np.copy(file['tasks']["vorticity_z_inertia"])[-snap_t:,:,:,:]
     vorticity_z_coriolis = np.copy(file['tasks']["vorticity_z_coriolis"])[-snap_t:,:,:,:]
-
-    # =========================================================================
-    # Energy equation
-    # =========================================================================
-
-    energy_diffusion = np.copy(file['tasks']["diffusion_energy"])[-snap_t:,:,:,:]
-    energy_inertia = np.copy(file['tasks']["inertia_energy"])[-snap_t:,:,:,:]
-    energy_buoyancy = np.copy(file['tasks']["buoyancy_energy"])[-snap_t:,:,:,:]
-    energy_pressure = np.copy(file['tasks']["pressure_energy"])[-snap_t:,:,:,:]
+    
 
 # =============================================================================
 # All my functions which I use through out the script
@@ -284,15 +276,12 @@ def plotMidPlane(Field):
     fig = plt.figure(figsize = (6,6))
     plt.xticks([])
     plt.yticks([])
-#    plt.title('Temperature Perturbations at $z = 0$')
     plt.imshow(midPointSlice, cmap = 'bwr', interpolation = 'gaussian')
-#    plt.colorbar()
-    plt.savefig('{}/img/plotMidPointSlice.eps'.format(dir), dpi=500)
     plt.show()
     
 def compareSpectrum(Field):
     """ 
-     
+    
 
     Parameters
     ----------
@@ -342,7 +331,7 @@ def computeRMS(Fx, Fy, Fz):
 
     """
 
-    return Fx + Fy + Fz#np.sqrt(Fx**2 + Fy**2 + Fz**2)
+    return np.sqrt(Fx**2 + Fy**2 + Fz**2)
 
 
 def computeSpectrum(Force):
@@ -381,7 +370,7 @@ def horizontalAverage(ForceRMS):
     rotatedForce = np.rot90(ForceRMS, k=1, axes=(2,0))
  
     for lines in rotatedForce:
-        profile.append(np.sum(lines))
+        profile.append(np.average(lines))
 
     return np.array(profile)
 
@@ -501,16 +490,6 @@ Buoyancy = domain.new_field(name='buoyancy')
 Pressure = domain.new_field(name='pressure')
 
 # =============================================================================
-# Momentum Equation
-# =============================================================================
-
-energyDiffusion = domain.new_field(name='diffusionEnergy')
-energyInertia = domain.new_field(name='inertiaEnergy')
-energyBuoyancy = domain.new_field(name='buoyancyEnergy')
-energyPressure = domain.new_field(name='pressureEnergy')
-
-
-# =============================================================================
 # Full Vorticity Equation
 # =============================================================================
 
@@ -592,11 +571,6 @@ UTimeSeries = []
 VTimeSeries = []
 WTimeSeries = []
 
-energyDiffusionTimeSeries = []
-energyBuoyancyTimeSeries = []
-energyInertiaTimeSeries = []
-energyPressureTimeSeries = []
-
 vorticityViscosityTimeSeries = []
 vorticityCoriolisTimeSeries = []
 vorticityBuoyancyTimeSeries = []
@@ -666,19 +640,10 @@ for idx in range(1,snap_t+1):
     xyVorticityInertia['g'] = computeRMS(vorticity_x_inertia[-idx], vorticity_y_inertia[-idx], blankMatrix)
     xyVorticityBuoyancy['g'] = computeRMS(vorticity_x_bouyancy[-idx], vorticity_y_bouyancy[-idx], blankMatrix)
 
-    energyDiffusion['g'] = energy_diffusion[-idx]
-    energyBuoyancy['g'] = energy_buoyancy[-idx]
-    energyPressure['g'] = energy_pressure[-idx]
-    energyInertia['g'] = energy_inertia[-idx]
-
     # =========================================================================
     # Remove the boundaries
     # =========================================================================
     
-    removeBoundaries(Mask, energyDiffusion)
-    removeBoundaries(Mask, energyPressure)
-    removeBoundaries(Mask, energyInertia)
-    removeBoundaries(Mask, energyBuoyancy)
     removeBoundaries(Mask, Viscosity)
     removeBoundaries(Mask, Pressure)
     removeBoundaries(Mask, Coriolis)
@@ -725,11 +690,6 @@ for idx in range(1,snap_t+1):
     vorticityCoriolisTimeSeries.append(computeSpectrum(vorticityCoriolis))
     vorticityInertiaTimeSeries.append(computeSpectrum(vorticityInertia))
     vorticityBuoyancyTimeSeries.append(computeSpectrum(vorticityBuoyancy))
-
-    energyDiffusionTimeSeries.append(computeSpectrum(energyDiffusion))
-    energyInertiaTimeSeries.append(computeSpectrum(energyInertia))
-    energyBuoyancyTimeSeries.append(computeSpectrum(energyBuoyancy))
-    energyPressureTimeSeries.append(computeSpectrum(energyPressure))
 
     xVorticityViscosityTimeSeries.append(computeSpectrum(xVorticityViscosity))
     xVorticityCoriolisTimeSeries.append(computeSpectrum(xVorticityCoriolis))
@@ -796,11 +756,6 @@ xyVorticityInertiaSpectrum = np.average(np.array(xyVorticityInertiaTimeSeries), 
 xyVorticityBuoyancySpectrum = np.average(np.array(xyVorticityBuoyancyTimeSeries), axis=0)
 xyVorticityCoriolisSpectrum = np.average(np.array(xyVorticityCoriolisTimeSeries), axis=0)
 
-energyDiffusionSpectrum = np.average(np.array(energyDiffusionTimeSeries), axis=0)
-energyInertiaSpectrum = np.average(np.array(energyInertiaTimeSeries), axis=0)
-energyBuoyancySpectrum = np.average(np.array(energyBuoyancyTimeSeries), axis=0)
-energyPressureSpectrum = np.average(np.array(energyPressureTimeSeries), axis=0)
-
 # =============================================================================
 # Time avg the profiles
 # =============================================================================
@@ -817,8 +772,8 @@ ACoriolisProfile = np.average(np.array(horizontalAvgACoriolisTimeSeries), axis=0
 # =============================================================================
 
 plotASlice(W)
-
 plotMidPlane(Temperature)
+upperXLim = N/2
 
 fig = plt.figure(figsize=(10,10))
 plt.plot(range(len(ViscositySpectrum)), ViscositySpectrum, label = '$F_v$', color = ViscosityColour, lw=spectrumlw)
@@ -831,35 +786,18 @@ plt.xscale("log")
 plt.yscale("log")
 plt.xlabel('$K_z$')
 plt.ylabel('Magnitude')
-plt.xlim(1,64)
-plt.ylim( min(yVorticityCoriolisSpectrum) // 10, max(yVorticityCoriolisSpectrum)*3)
-viscosityIndex, viscosityIntersection = findIntersection(ViscositySpectrum, ACoriolisSpectrum)
-print('The intersection between viscosity and the Ageostrophic Coriolis force in the force spectra is: {:.2f}.'.format(viscosityIndex))
-plt.plot(np.ones(100)*viscosityIndex, np.linspace(0, viscosityIntersection, 100), 'k--')
-plt.annotate('$L_v = ${:.1f}'.format(viscosityIndex), (viscosityIndex // 2, max(ViscositySpectrum) // 10))
-inertiaIndex, inertiaIntersection = findIntersection(InertiaSpectrum, ACoriolisSpectrum)
-plt.plot(np.ones(100)*inertiaIndex, np.linspace(0, inertiaIntersection, 100), 'k--')
-plt.annotate('$L_I = ${:.1f}'.format(inertiaIndex), (inertiaIndex // 2, max(ViscositySpectrum) // 20))
+plt.xlim(1, upperXLim)
+#viscosityIndex, viscosityIntersection = findIntersection(ViscositySpectrum, ACoriolisSpectrum)
+#print('The intersection between viscosity and the Ageostrophic Coriolis force in the force spectra is: {:.2f}.'.format(viscosityIndex))
+#plt.plot(np.ones(100)*viscosityIndex, np.linspace(0, viscosityIntersection, 100), 'k--')
+#plt.annotate('$L_v = ${:.1f}'.format(viscosityIndex), (viscosityIndex // 2, max(ViscositySpectrum) // 10))
+#inertiaIndex, inertiaIntersection = findIntersection(InertiaSpectrum, ACoriolisSpectrum)
+#plt.plot(np.ones(100)*inertiaIndex, np.linspace(0, inertiaIntersection, 100), 'k--')
+#plt.annotate('$L_I = ${:.1f}'.format(inertiaIndex), (inertiaIndex // 2, max(ViscositySpectrum) // 20))
 legend_properties = {'weight':'bold'}
 plt.title('Force Spectra')
 plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
 plt.savefig('{}/img/ForceSpectrum.eps'.format(dir), dpi=500)
-plt.show()
-
-fig = plt.figure(figsize=(10,10))
-plt.plot(range(len(ViscositySpectrum)), energyDiffusionSpectrum, label = '$E_v$', color = ViscosityColour, lw = spectrumlw)
-plt.plot(range(len(InertiaSpectrum)), energyInertiaSpectrum, label = '$E_I$', color = InertiaColour, lw = spectrumlw)
-plt.plot(range(len(BuoyancySpectrum)), energyBuoyancySpectrum, label = '$E_B$', color = BuoyancyColour, lw = spectrumlw)
-plt.plot(range(len(BuoyancySpectrum)), energyPressureSpectrum, label = '$E_P$', color = PressureColour, lw = spectrumlw)
-plt.xscale("log")
-plt.yscale("log")
-plt.xlabel('$K_z$')
-plt.ylabel('Magnitude')
-plt.xlim(1,64)
-legend_properties = {'weight':'bold'}
-plt.title('Force Spectra')
-plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
-plt.savefig('{}/img/energySpectrum.eps'.format(dir), dpi=500)
 plt.show()
 
 fig = plt.figure(figsize=(10,10))
@@ -872,15 +810,14 @@ plt.yscale("log")
 plt.xlabel('$K_z$')
 plt.title('Vorticity Equation')
 plt.ylabel('Magnitude')
-plt.xlim(1,64)
-plt.ylim( min(vorticityCoriolisSpectrum) // 10, max(vorticityCoriolisSpectrum)*3)
-viscosityIndex, viscosityIntersection = findIntersection(vorticityViscositySpectrum, vorticityCoriolisSpectrum)
-print('The intersection between viscosity and the Ageostrophic Coriolis force in the force spectra is: {:.2f}.'.format(viscosityIndex))
-plt.plot(np.ones(100)*viscosityIndex, np.linspace(0, viscosityIntersection, 100), 'k--')
-plt.annotate('$L_v = ${:.1f}'.format(viscosityIndex), (viscosityIndex // 2, max(ViscositySpectrum) // 10))
-inertiaIndex, inertiaIntersection = findIntersection(vorticityInertiaSpectrum, vorticityCoriolisSpectrum)
-plt.plot(np.ones(100)*inertiaIndex, np.linspace(0, inertiaIntersection, 100), 'k--')
-plt.annotate('$L_I = ${:.1f}'.format(inertiaIndex), (inertiaIndex // 2, max(ViscositySpectrum) // 20))
+plt.xlim(1, upperXLim)
+#viscosityIndex, viscosityIntersection = findIntersection(vorticityViscositySpectrum, vorticityCoriolisSpectrum)
+#print('The intersection between viscosity and the Ageostrophic Coriolis force in the force spectra is: {:.2f}.'.format(viscosityIndex))
+#plt.plot(np.ones(100)*viscosityIndex, np.linspace(0, viscosityIntersection, 100), 'k--')
+#plt.annotate('$L_v = ${:.1f}'.format(viscosityIndex), (viscosityIndex // 2, max(ViscositySpectrum) // 10))
+#inertiaIndex, inertiaIntersection = findIntersection(vorticityInertiaSpectrum, vorticityCoriolisSpectrum)
+#plt.plot(np.ones(100)*inertiaIndex, np.linspace(0, inertiaIntersection, 100), 'k--')
+#plt.annotate('$L_I = ${:.1f}'.format(inertiaIndex), (inertiaIndex // 2, max(ViscositySpectrum) // 20))
 plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
 plt.savefig('{}/img/vorticityForceSpectrum.eps'.format(dir), dpi=500)
 plt.show()
@@ -895,14 +832,14 @@ plt.title('Y - Vorticity Equation')
 plt.yscale("log")
 plt.xlabel('$K_z$')
 plt.ylabel('Magnitude')
-viscosityIndex, viscosityIntersection = findIntersection(yVorticityViscositySpectrum, yVorticityCoriolisSpectrum)
-print('The intersection between viscosity and the Ageostrophic Coriolis force in the force spectra is: {:.2f}.'.format(viscosityIndex))
-plt.plot(np.ones(100)*viscosityIndex, np.linspace(0, viscosityIntersection, 100), 'k--')
-plt.annotate('$L_v = ${:.1f}'.format(viscosityIndex), (viscosityIndex // 2, max(ViscositySpectrum) // 10))
-inertiaIndex, inertiaIntersection = findIntersection(yVorticityInertiaSpectrum, yVorticityCoriolisSpectrum)
-plt.plot(np.ones(100)*inertiaIndex, np.linspace(0, inertiaIntersection, 100), 'k--')
-plt.annotate('$L_I = ${:.1f}'.format(inertiaIndex), (inertiaIndex // 2, max(ViscositySpectrum) // 20))
-plt.xlim(1,64) 
+#viscosityIndex, viscosityIntersection = findIntersection(yVorticityViscositySpectrum, yVorticityCoriolisSpectrum)
+#print('The intersection between viscosity and the Ageostrophic Coriolis force in the force spectra is: {:.2f}.'.format(viscosityIndex))
+#plt.plot(np.ones(100)*viscosityIndex, np.linspace(0, viscosityIntersection, 100), 'k--')
+#plt.annotate('$L_v = ${:.1f}'.format(viscosityIndex), (viscosityIndex // 2, max(ViscositySpectrum) // 10))
+#inertiaIndex, inertiaIntersection = findIntersection(yVorticityInertiaSpectrum, yVorticityCoriolisSpectrum)
+#plt.plot(np.ones(100)*inertiaIndex, np.linspace(0, inertiaIntersection, 100), 'k--')
+#plt.annotate('$L_I = ${:.1f}'.format(inertiaIndex), (inertiaIndex // 2, max(ViscositySpectrum) // 20))
+plt.xlim(1, upperXLim) 
 plt.ylim( min(yVorticityCoriolisSpectrum) // 10, max(yVorticityCoriolisSpectrum)*3)
 plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
 plt.savefig('{}/img/yVorticityForceSpectrum.eps'.format(dir), dpi=500)
@@ -918,12 +855,12 @@ plt.title('X - Y Averaged Vorticity Equation')
 plt.yscale("log")
 plt.xlabel('$K_z$')
 plt.ylabel('Magnitude')
-plt.xlim(1,64)
-index,intersection = findIntersection(xyVorticityViscositySpectrum, xyVorticityCoriolisSpectrum)
-print('The intersection between viscosity and the Coriolis force in the X-Y avg vorticity equation is: {:.2f}.'.format(index))
-plt.annotate('$L_\perp = ${:.1f}'.format(index), (index // 2, max(xyVorticityViscositySpectrum) // 10))
-plt.plot(np.ones(100)*index, np.linspace(0, intersection, 100), 'k--')
-plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
+plt.xlim(1, upperXLim)
+#index,intersection = findIntersection(xyVorticityViscositySpectrum, xyVorticityCoriolisSpectrum)
+#print('The intersection between viscosity and the Coriolis force in the X-Y avg vorticity equation is: {:.2f}.'.format(index))
+#plt.annotate('$L_\perp = ${:.1f}'.format(index), (index // 2, max(xyVorticityViscositySpectrum) // 10))
+#plt.plot(np.ones(100)*index, np.linspace(0, intersection, 100), 'k--')
+#plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
 plt.savefig('{}/img/xyVorticityForceSpectrum.eps'.format(dir), dpi=500)
 plt.show()
 
@@ -937,12 +874,12 @@ plt.title('X - Vorticity Equation')
 plt.yscale("log")
 plt.xlabel('$K_z$')
 plt.ylabel('Magnitude')
-plt.xlim(1,64)
-index,intersection = findIntersection(xVorticityViscositySpectrum, xVorticityCoriolisSpectrum)
-print('The intersection between viscosity and the Coriolis force in the X vorticity equation is: {:.2f}.'.format(index))
-plt.plot(np.ones(100)*index, np.linspace(0, intersection, 100), 'k--')
-plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
-plt.annotate('$L_\perp = ${:.1f}'.format(index), (index // 2, max(xVorticityViscositySpectrum) // 10))
+plt.xlim(1, upperXLim)
+#index,intersection = findIntersection(xVorticityViscositySpectrum, xVorticityCoriolisSpectrum)
+#print('The intersection between viscosity and the Coriolis force in the X vorticity equation is: {:.2f}.'.format(index))
+#plt.plot(np.ones(100)*index, np.linspace(0, intersection, 100), 'k--')
+#plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
+#plt.annotate('$L_\perp = ${:.1f}'.format(index), (index // 2, max(xVorticityViscositySpectrum) // 10))
 plt.savefig('{}/img/xVorticityForceSpectrum.eps'.format(dir), dpi=500)
 plt.show()
 
@@ -953,13 +890,15 @@ plt.plot(range(len(ViscositySpectrum)), KineticSpectrum, lw = 2, color = Viscosi
 plt.plot(range(len(ViscositySpectrum)), USpectrum, lw = 2, color = CoriolisColour, label = 'u')
 plt.plot(range(len(ViscositySpectrum)), VSpectrum, lw = 2, color = PressureColour, label = 'v')
 plt.plot(range(len(ViscositySpectrum)), WSpectrum, lw = 2, color = ACColour, label = 'w')
+
+with open('{}img/kinetic.txt'.format(dir), 'w') as kineticFile:
+    kineticFile.write(str(KineticSpectrum))
+
 plt.xscale("log")
 plt.yscale("log")
 plt.xlabel('$K_z$')
-plt.ylabel('Magnitude')
-plt.xlim(1,64)
-legend_properties = {'weight':'bold'}
-plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
+plt.ylabel('Kinetic Energy')
+plt.xlim(1, upperXLim)
 plt.savefig('{}/img/KineticSpectrum.eps'.format(dir), dpi=500)
 plt.show()
 
@@ -967,37 +906,37 @@ plt.show()
 # Plot the horizontal profiles 
 # =============================================================================
 
-
-# =============================================================================
-# fig = plt.figure(figsize=(10,10))
-# plt.plot(ViscosityProfile, z, color = ViscosityColour, label = '$F_V$', lw = 2)
-# plt.plot(CoriolisProfile, z, color = CoriolisColour, label = '$F_C$', lw = 2)
-# plt.plot(InertiaProfile, z, color = InertiaColour, label = '$F_I$', lw = 2)
-# plt.plot(ACoriolisProfile, z, color = ACColour, label = '$F_{AC}$', lw = 2)
-# plt.plot(BuoyancyProfile, z, color = BuoyancyColour, label = '$F_B$', lw = 2)
-# plt.plot(PressureProfile, z, color = PressureColour, label = '$F_P$', lw = 2)
-# legend_properties = {'weight':'bold'}
-# plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
-# plt.xlabel('Magnitude')
-# plt.ylabel('z')
-# plt.xscale('log')
-# plt.savefig('{}/img/ForceProfiles.eps'.format(dir), dpi=500)
-# plt.show()
-# =============================================================================
+fig = plt.figure(figsize=(10,10))
+plt.plot(ViscosityProfile, z, color = ViscosityColour, label = '$F_V$', lw = 2)
+plt.plot(CoriolisProfile, z, color = CoriolisColour, label = '$F_C$', lw = 2)
+plt.plot(InertiaProfile, z, color = InertiaColour, label = '$F_I$', lw = 2)
+plt.plot(ACoriolisProfile, z, color = ACColour, label = '$F_{AC}$', lw = 2)
+plt.plot(BuoyancyProfile, z, color = BuoyancyColour, label = '$F_B$', lw = 2)
+plt.plot(PressureProfile, z, color = PressureColour, label = '$F_P$', lw = 2)
+legend_properties = {'weight':'bold'}
+plt.legend(ncol=2, fontsize=14,prop=legend_properties,frameon=False)
+plt.xlabel('Magnitude')
+plt.ylabel('z')
+plt.savefig('{}/img/ForceProfiles.eps'.format(dir), dpi=500)
+plt.show()
 
 # =============================================================================
 # ## Plot mid height values like (Guzman, 2021) ##
-# 
-# mid_point = int(len(z)/2)
-# 
-# fig = plt.figure(figsize=(12,6))
-# plt.xscale("log")
-# plt.yscale("log")
-# plt.scatter([Ra], ViscosityProfile[mid_point], label = 'Viscosity')
-# plt.scatter([Ra], CoriolisProfile[mid_point],  label = 'Coriolis')
-# plt.scatter([Ra], InertiaProfile[mid_point], label = 'Inertia')
-# plt.scatter([Ra], BuoyancyProfile[mid_point], label = 'Buoyancy')
-# plt.scatter([Ra], PressureProfile[mid_point], label = 'Pressure')
-# plt.legend()
-# plt.show()
-# =============================================================================
+# ============================================================================= 
+
+mid_point = int(len(z)/2)
+ 
+fig = plt.figure(figsize=(12,6))
+plt.xscale("log")
+plt.yscale("log")
+plt.scatter([Ra], ViscosityProfile[mid_point], label = 'Viscosity')
+plt.scatter([Ra], CoriolisProfile[mid_point],  label = 'Coriolis')
+plt.scatter([Ra], InertiaProfile[mid_point], label = 'Inertia')
+plt.scatter([Ra], BuoyancyProfile[mid_point], label = 'Buoyancy')
+plt.scatter([Ra], PressureProfile[mid_point], label = 'Pressure')
+plt.legend()
+plt.show()
+
+print('-'*60)
+print('Viscosity: {:.3e}, Coriolis: {:.3e}, Inertia: {:.3e}, Buoyancy: {:.3e}, Pressure: {:.3e}.'.format(ViscosityProfile[mid_point], CoriolisProfile[mid_point], InertiaProfile[mid_point], BuoyancyProfile[mid_point], PressureProfile[mid_point]))
+print('-'*60)

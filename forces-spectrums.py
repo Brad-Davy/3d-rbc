@@ -315,7 +315,8 @@ def compareSpectrum(Field):
 
     print(2*runningSum, integratedRealField)
 
-def computeRMS(Fx, Fy, Fz):
+
+def computeRMS(Fx, Fy, Fz, N=128):
     """ 
     
 
@@ -325,13 +326,64 @@ def computeRMS(Fx, Fy, Fz):
     Fy : FORCE IN Y.
     Fz : FORCE IN Z.
 
-    ReturnsyVorticityViscositySpectrum,
+    Returns
     -------
-    RMS of the force. Computes: sqrt(Fx^2 + Fy^2 + Fz^2) as used in (Andres,2021).
+    Removes any mean profile from the flow and returns the RMS of this 
+    new, meanless, field.
 
     """
 
-    return np.sqrt(Fx**2 + Fy**2 + Fz**2)
+    Nx = N
+    Ny = N 
+    Lx = Ly = 1
+    Lz = 1
+    Nz = int(N/Lx)
+
+    x_basis = de.Fourier('x', Nx, interval = (0,Lx), dealias=3/2)
+    y_basis = de.Fourier('y', Ny, interval = (0,Ly), dealias=3/2)
+    z_basis = de.Chebyshev('z', Nz, interval = (-Lz/2,Lz/2), dealias =3/2) 
+    domain = de.Domain([x_basis, y_basis, z_basis], grid_dtype=np.float64)
+    
+    forceXField = domain.new_field(name='Fx')
+    forceYField = domain.new_field(name='Fy')
+    forceZField = domain.new_field(name='Fz')
+    
+    forceXField['g'] = Fx
+    forceYField['g'] = Fy
+    forceXField['g'] = Fz
+
+    FFTofforceXField = forceXField['c']
+    FFTofforceYField = forceYField['c']
+    FFTofforceZField = forceZField['c']
+
+    magnitudeFx = FFTofforceXField * np.conj(FFTofforceXField)  
+    magnitudeFy = FFTofforceYField * np.conj(FFTofforceYField)
+    magnitudeFz = FFTofforceZField * np.conj(FFTofforceZField)    
+
+    return magnitudeFx + magnitudeFy + magnitudeFz
+
+def removeMeanProfile(Force):
+    """ 
+    
+
+    Parameters
+    ----------
+    Force : FORCE.
+
+    ReturnsyVorticityViscositySpectrum,
+    -------
+    Removes any mean profile found in the flow (Force).
+    """
+    
+    rotatedForce = np.rot90(Force, k = 1, axes = (2,0))
+    meanProfileOfForce = [np.average(planes) for planes in rotatedForce]
+    meanProfile3DArray = np.ones_like(rotatedForce)
+    
+    for idx,plane in enumerate(meanProfile3DArray):
+        meanProfile3DArray[idx] = meanProfile3DArray[idx]*meanProfileOfForce[idx]
+
+    return np.rot90(rotatedForce - meanProfile3DArray, k = -1, axes = (2,0)) 
+
 
 
 def computeSpectrum(Force):
@@ -350,7 +402,7 @@ def computeSpectrum(Force):
     
     ForceSpectrum = (Force['c'].imag**2 +  Force['c'].real**2)**0.5
     z_avg = np.sum(ForceSpectrum, axis = 2) # average over z 
-    return np.sum(z_avg, axis = 1) 
+    return np.sum(z_avg, axis = 0) 
 
 def horizontalAverage(ForceRMS):
     """ 
@@ -464,7 +516,7 @@ def removeBoundaries(Mask, Force):
 
 Nx = N 
 Ny = N
-Lx = Ly = 2
+Lx = Ly = 1
 Lz = 1
 Nz = int(N/Lx)
 
@@ -609,21 +661,21 @@ for idx in range(1,snap_t+1):
     # Load data
     # =============================================================================
     
-    Viscosity['g'] = computeRMS(x_diffusion[-idx], y_diffusion[-idx], z_diffusion[-idx])
-    Coriolis['g'] = computeRMS(x_coriolis[-idx], y_coriolis[-idx], blankMatrix)
-    Inertia['g'] = computeRMS(x_inertia[-idx], y_inertia[-idx], z_inertia[-idx])
-    Buoyancy['g'] = computeRMS(blankMatrix, blankMatrix, z_buoyancy[-idx])
-    Pressure['g'] = computeRMS(x_pressure[-idx], y_pressure[-idx], z_pressure[-idx])
+    Viscosity['c'] = computeRMS(x_diffusion[-idx], y_diffusion[-idx], z_diffusion[-idx])
+    Coriolis['c'] = computeRMS(x_coriolis[-idx], y_coriolis[-idx], blankMatrix)
+    Inertia['c'] = computeRMS(x_inertia[-idx], y_inertia[-idx], z_inertia[-idx])
+    Buoyancy['c'] = computeRMS(blankMatrix, blankMatrix, removeMeanProfile(z_buoyancy[-idx]))
+    Pressure['c'] = computeRMS(removeMeanProfile(x_pressure[-idx]), removeMeanProfile(y_pressure[-idx]), removeMeanProfile(z_pressure[-idx]))
     Kinetic['c'] = kinetic_spectrum[-idx]
-    ACoriolis['g'] = computeRMS(x_pressure[-idx] + x_coriolis[-idx], y_pressure[-idx] + y_coriolis[-idx], z_pressure[-idx] - blankMatrix)
+    ACoriolis['c'] = computeRMS(x_pressure[-idx] + x_coriolis[-idx], y_pressure[-idx] + y_coriolis[-idx], z_pressure[-idx] - blankMatrix)
     U['g'] = u[-idx]
     V['g'] = v[-idx]
     W['g'] = w[-idx]
     
-    vorticityViscosity['g'] = computeRMS(vorticity_x_diffusion[-idx], vorticity_y_diffusion[-idx], vorticity_z_diffusion[-idx])
-    vorticityCoriolis['g'] = computeRMS(vorticity_x_coriolis[-idx], vorticity_y_coriolis[-idx], vorticity_z_coriolis[-idx])
-    vorticityInertia['g'] = computeRMS(vorticity_x_inertia[-idx], vorticity_y_inertia[-idx], vorticity_z_inertia[-idx])
-    vorticityBuoyancy['g'] = computeRMS(vorticity_x_bouyancy[-idx], vorticity_y_bouyancy[-idx], blankMatrix)
+    vorticityViscosity['c'] = computeRMS(vorticity_x_diffusion[-idx], vorticity_y_diffusion[-idx], vorticity_z_diffusion[-idx])
+    vorticityCoriolis['c'] = computeRMS(vorticity_x_coriolis[-idx], vorticity_y_coriolis[-idx], vorticity_z_coriolis[-idx])
+    vorticityInertia['c'] = computeRMS(vorticity_x_inertia[-idx], vorticity_y_inertia[-idx], vorticity_z_inertia[-idx])
+    vorticityBuoyancy['c'] = computeRMS(vorticity_x_bouyancy[-idx], vorticity_y_bouyancy[-idx], blankMatrix)
     
     xVorticityViscosity['g'] = vorticity_x_diffusion[-idx]
     xVorticityCoriolis['g'] = vorticity_x_coriolis[-idx]
@@ -635,10 +687,10 @@ for idx in range(1,snap_t+1):
     yVorticityInertia['g'] = vorticity_y_inertia[-idx]
     yVorticityBuoyancy['g'] = vorticity_y_bouyancy[-idx]
  
-    xyVorticityViscosity['g'] = computeRMS(vorticity_x_diffusion[-idx], vorticity_y_diffusion[-idx], blankMatrix)
-    xyVorticityCoriolis['g'] = computeRMS(vorticity_x_coriolis[-idx], vorticity_y_coriolis[-idx], blankMatrix)
-    xyVorticityInertia['g'] = computeRMS(vorticity_x_inertia[-idx], vorticity_y_inertia[-idx], blankMatrix)
-    xyVorticityBuoyancy['g'] = computeRMS(vorticity_x_bouyancy[-idx], vorticity_y_bouyancy[-idx], blankMatrix)
+    xyVorticityViscosity['c'] = computeRMS(vorticity_x_diffusion[-idx], vorticity_y_diffusion[-idx], blankMatrix)
+    xyVorticityCoriolis['c'] = computeRMS(vorticity_x_coriolis[-idx], vorticity_y_coriolis[-idx], blankMatrix)
+    xyVorticityInertia['c'] = computeRMS(vorticity_x_inertia[-idx], vorticity_y_inertia[-idx], blankMatrix)
+    xyVorticityBuoyancy['c'] = computeRMS(vorticity_x_bouyancy[-idx], vorticity_y_bouyancy[-idx], blankMatrix)
 
     # =========================================================================
     # Remove the boundaries
@@ -719,7 +771,7 @@ for idx in range(1,snap_t+1):
 
     print('Coriolis: {:.2e}, Pressure: {:.2e}, Viscosity: {:.2e}, Inertia: {:.2e}, Buoyancy: {:.2e}, Ageostrophic: {:.2e}'.format(np.sum(Coriolis['g']), np.sum(Pressure['g']),np.sum(Viscosity['g']), np.sum(Inertia['g']), np.sum(Buoyancy['g']), np.sum(ACoriolis['g'])))
 
-compareSpectrum(Viscosity)
+compareSpectrum(Coriolis)
 
 # =============================================================================
 # Time avg the spectrums 

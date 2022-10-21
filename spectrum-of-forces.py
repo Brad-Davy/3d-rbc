@@ -1,4 +1,6 @@
-"""Analysis of forces file of 3d rotating rayleigh benard convection
+"""
+   A script which looks at how the forces in rotating rayleigh benard 
+   convection changes as a function of the length scale.
 
 Usage:
     forces_spectrums.py [--dir=<directory>] [--snap_t=<snapshot_transient>] [--mask=<mask>] [--t=<transient> --fig=<Figure>]
@@ -7,8 +9,8 @@ Usage:
 Options:
     -h --help                           Display this help message
     --dir=<directory>                   Directory [default: results/Ra_1-40e+08_Ek_1-00e-05_Pr_7-0_N_128_q_1-2_k_48_enhanced/]
-    --snap_t=<transient>                Snapshot transient [default: 1]
-    --mask=<mask>                       Number of viscous boundaries to ignore [default: 0] 
+    --snap_t=<transient>                Snapshot transient [default: 5]
+    --mask=<mask>                       Number of viscous boundaries to ignore [default: 5] 
     --t=<transient>                     Transient to be ignored [default: 2000]
     --fig=<Figure>                      Produce Figures [default: False]
 """
@@ -321,7 +323,6 @@ def removeMeanProfile(Force):
 
     return np.rot90(rotatedForce - meanProfile3DArray, k = -1, axes = (2,0)) 
 
-
 def createSurfacePlot(FFTofForce):
     """
     
@@ -337,13 +338,54 @@ def createSurfacePlot(FFTofForce):
 
     """
 
-    #forceSpectrum = (FFToFForce['c'].imag**2 +  FFToFForce['c'].real**2)**0.5
     forceSpectrum = FFTofForce['c'].real
-    z_avg = np.sum(forceSpectrum, axis = 2) # average over z 
+    z_avg = np.sum(forceSpectrum, axis = 2) 
     plt.imshow(np.log10(z_avg))
     return forceSpectrum
+
+def plotHorizontalWaveNumber(FFTofForce):
+    """
     
-def computeSpectrum(Force):
+
+    Parameters
+    ----------
+    FFToFForce : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    forceSpectrum = FFTofForce['c'].real
+    Lx = Ly = 2
+    sumOverZ = np.sum(forceSpectrum, axis = 2) 
+    
+    Nmax = max(np.shape(sumOverZ)[0], np.shape(sumOverZ)[1])
+    horizontalAveragedSpectra = []
+    for p in range(1, Nmax):
+        
+        temporarySum = 0
+        index = 0
+        
+        for kx in range(np.shape(sumOverZ)[0]):
+            for ky in range(np.shape(sumOverZ)[1]):
+                
+                if p - 1 < (kx**2 + ky**2)**0.5 <= p:
+                    temporarySum += sumOverZ[kx][ky]
+                    index += 1
+                    
+        
+        horizontalAveragedSpectra.append(temporarySum / index)
+    
+    plt.plot(range(1,  Nmax),horizontalAveragedSpectra)
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.show()
+        
+    
+def computeSpectrum(FFTofForce):
     """ 
     
 
@@ -357,9 +399,28 @@ def computeSpectrum(Force):
 
     """
     
-    forceSpectrum = Force['c'].real
-    z_avg = np.sum(forceSpectrum, axis = 2) # average over z 
-    return np.sum(z_avg, axis = 1) 
+    forceSpectrum = FFTofForce['c'].real
+    Lx = Ly = 2
+    sumOverZ = np.sum(forceSpectrum, axis = 2) 
+    
+    Nmax = max(np.shape(sumOverZ)[0], np.shape(sumOverZ)[1])
+    horizontalAveragedSpectra = []
+    for p in range(1, Nmax):
+        
+        temporarySum = 0
+        index = 0
+        
+        for kx in range(np.shape(sumOverZ)[0]):
+            for ky in range(np.shape(sumOverZ)[1]):
+                
+                if p - 1 < (kx**2 + ky**2)**0.5 <= p:
+                    temporarySum += sumOverZ[kx][ky]
+                    index += 1
+                    
+        
+        horizontalAveragedSpectra.append(temporarySum)
+   
+    return horizontalAveragedSpectra
 
 def computeFromNegativeSpectrum(negativeForce):
     """
@@ -376,8 +437,27 @@ def computeFromNegativeSpectrum(negativeForce):
     """
 
     forceSpectrum = (negativeForce['c'].real**2 + negativeForce['c'].imag**2)**0.5
-    z_avg = np.sum(forceSpectrum, axis = 2) # average over z 
-    return np.sum(z_avg, axis = 1) 
+    Lx = Ly = 2
+    sumOverZ = np.sum(forceSpectrum, axis = 2) 
+    
+    Nmax = max(np.shape(sumOverZ)[0], np.shape(sumOverZ)[1])
+    horizontalAveragedSpectra = []
+    for p in range(1, Nmax):
+        
+        temporarySum = 0
+        index = 0
+        
+        for kx in range(np.shape(sumOverZ)[0]):
+            for ky in range(np.shape(sumOverZ)[1]):
+                
+                if p - 1 < (kx**2 + ky**2)**0.5 <= p:
+                    temporarySum += sumOverZ[kx][ky]
+                    index += 1
+                    
+        
+        horizontalAveragedSpectra.append(temporarySum)
+    
+    return horizontalAveragedSpectra
 
 def derivative(data,z):
     """ 
@@ -609,7 +689,7 @@ for idx in range(1,snap_t+1):
     Inertia['c'] = computeRMS(removeBoundaries(Mask, x_inertia[-idx]), removeBoundaries(Mask, y_inertia[-idx]), removeBoundaries(Mask, z_inertia[-idx]))
     Buoyancy['c'] = computeRMS(blankMatrix, blankMatrix, removeBoundaries(Mask, removeMeanProfile(z_buoyancy[-idx])))
     Pressure['c'] = computeRMS(removeBoundaries(Mask, removeMeanProfile(x_pressure[-idx])), removeBoundaries(Mask, removeMeanProfile(y_pressure[-idx])), removeBoundaries(Mask, removeMeanProfile(z_pressure[-idx])))
-    Kinetic['c'] = kinetic_spectrum[-idx]
+    Kinetic['c'] = computeRMS(u[-idx], v[-idx], w[-idx])
     ACoriolis['c'] = computeRMS(removeBoundaries(Mask, x_pressure[-idx] + x_coriolis[-idx]), removeBoundaries(Mask, y_pressure[-idx] + y_coriolis[-idx]), removeBoundaries(Mask, z_pressure[-idx]))
     U['g'] = u[-idx]
     V['g'] = v[-idx]
@@ -673,7 +753,7 @@ for idx in range(1,snap_t+1):
 
 
 #compareSpectrum(Coriolis)
-noNegatives = createSurfacePlot(Viscosity)
+plotHorizontalWaveNumber(Viscosity)
 
 # =============================================================================
 # Time avg the spectrums 
@@ -766,10 +846,10 @@ plt.savefig('{}/img/vorticityForceSpectrum.eps'.format(dir), dpi=500)
 plt.show()
 
 fig = plt.figure(figsize=(10,10))
-plt.plot(range(len(ViscositySpectrum)), yVorticityViscositySpectrum, label = '$\\omega_v$', color = ViscosityColour, lw=spectrumlw)
-plt.plot(range(len(ViscositySpectrum)), yVorticityCoriolisSpectrum, label = '$\\omega_C$', color = CoriolisColour, lw=spectrumlw)
-plt.plot(range(len(InertiaSpectrum)), yVorticityInertiaSpectrum, label = '$\\omega_I$', color = InertiaColour, lw=spectrumlw)
-plt.plot(range(len(BuoyancySpectrum)), yVorticityBuoyancySpectrum, label = '$\\omega_B$', color = BuoyancyColour, lw=spectrumlw)
+plt.plot(range(len(yVorticityViscositySpectrum)), yVorticityViscositySpectrum, label = '$\\omega_v$', color = ViscosityColour, lw=spectrumlw)
+plt.plot(range(len(yVorticityViscositySpectrum)), yVorticityCoriolisSpectrum, label = '$\\omega_C$', color = CoriolisColour, lw=spectrumlw)
+plt.plot(range(len(yVorticityViscositySpectrum)), yVorticityInertiaSpectrum, label = '$\\omega_I$', color = InertiaColour, lw=spectrumlw)
+plt.plot(range(len(yVorticityViscositySpectrum)), yVorticityBuoyancySpectrum, label = '$\\omega_B$', color = BuoyancyColour, lw=spectrumlw)
 plt.xscale("log")
 plt.title('Y - Vorticity Equation')
 plt.yscale("log")
@@ -790,10 +870,10 @@ plt.savefig('{}/img/yVorticityForceSpectrum.eps'.format(dir), dpi=500)
 plt.show()
 
 fig = plt.figure(figsize=(10,10))
-plt.plot(range(len(ViscositySpectrum)), xyVorticityViscositySpectrum, label = '$\\omega_v$', color = ViscosityColour, lw=spectrumlw)
-plt.plot(range(len(ViscositySpectrum)), xyVorticityCoriolisSpectrum, label = '$\\omega_C$', color = CoriolisColour, lw=spectrumlw)
-plt.plot(range(len(InertiaSpectrum)), xyVorticityInertiaSpectrum, label = '$\\omega_I$', color = InertiaColour, lw=spectrumlw)
-plt.plot(range(len(BuoyancySpectrum)), xyVorticityBuoyancySpectrum, label = '$\\omega_B$', color = BuoyancyColour, lw=spectrumlw)
+plt.plot(range(len(xyVorticityViscositySpectrum)), xyVorticityViscositySpectrum, label = '$\\omega_v$', color = ViscosityColour, lw=spectrumlw)
+plt.plot(range(len(xyVorticityViscositySpectrum)), xyVorticityCoriolisSpectrum, label = '$\\omega_C$', color = CoriolisColour, lw=spectrumlw)
+plt.plot(range(len(xyVorticityViscositySpectrum)), xyVorticityInertiaSpectrum, label = '$\\omega_I$', color = InertiaColour, lw=spectrumlw)
+plt.plot(range(len(xyVorticityViscositySpectrum)), xyVorticityBuoyancySpectrum, label = '$\\omega_B$', color = BuoyancyColour, lw=spectrumlw)
 plt.xscale("log")
 plt.title('X - Y Averaged Vorticity Equation')
 plt.yscale("log")
@@ -810,10 +890,10 @@ plt.savefig('{}/img/xyVorticityForceSpectrum.eps'.format(dir), dpi=500)
 plt.show()
 
 fig = plt.figure(figsize=(10,10))
-plt.plot(range(len(ViscositySpectrum)), xVorticityViscositySpectrum, label = '$\\omega_v$', color = ViscosityColour, lw=spectrumlw)
-plt.plot(range(len(ViscositySpectrum)), xVorticityCoriolisSpectrum, label = '$\\omega_C$', color = CoriolisColour, lw=spectrumlw)
-plt.plot(range(len(InertiaSpectrum)), xVorticityInertiaSpectrum, label = '$\\omega_I$', color = InertiaColour, lw=spectrumlw)
-plt.plot(range(len(BuoyancySpectrum)), xVorticityBuoyancySpectrum, label = '$\\omega_B$', color = BuoyancyColour, lw=spectrumlw)
+plt.plot(range(len(xVorticityViscositySpectrum)), xVorticityViscositySpectrum, label = '$\\omega_v$', color = ViscosityColour, lw=spectrumlw)
+plt.plot(range(len(xVorticityViscositySpectrum)), xVorticityCoriolisSpectrum, label = '$\\omega_C$', color = CoriolisColour, lw=spectrumlw)
+plt.plot(range(len(xVorticityViscositySpectrum)), xVorticityInertiaSpectrum, label = '$\\omega_I$', color = InertiaColour, lw=spectrumlw)
+plt.plot(range(len(xVorticityViscositySpectrum)), xVorticityBuoyancySpectrum, label = '$\\omega_B$', color = BuoyancyColour, lw=spectrumlw)
 plt.xscale("log")
 plt.title('X - Vorticity Equation')
 plt.yscale("log")
@@ -833,10 +913,9 @@ print('The max wavenumber for k.e: {}, u: {}, v: {}, w: {}.'.format(np.argmax(Ki
 
 fig = plt.figure(figsize=(12,6))
 plt.plot(range(len(ViscositySpectrum)), KineticSpectrum, lw = 2, color = ViscosityColour, label = 'K.e')
-plt.plot(range(len(ViscositySpectrum)), USpectrum, lw = 2, color = CoriolisColour, label = 'u')
-plt.plot(range(len(ViscositySpectrum)), VSpectrum, lw = 2, color = PressureColour, label = 'v')
-plt.plot(range(len(ViscositySpectrum)), WSpectrum, lw = 2, color = ACColour, label = 'w')
-
+#plt.plot(range(len(ViscositySpectrum)), USpectrum, lw = 2, color = CoriolisColour, label = 'u')
+#plt.plot(range(len(ViscositySpectrum)), WSpectrum, lw = 2, color = ACColour, label = 'w')
+#plt.plot(range(len(ViscositySpectrum)), VSpectrum, lw = 2, color = PressureColour, label = 'v')
 with open('{}img/kinetic.txt'.format(dir), 'w') as kineticFile:
     kineticFile.write(str(KineticSpectrum))
 

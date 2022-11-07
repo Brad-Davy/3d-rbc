@@ -4,6 +4,6 @@ and solved using the Dedalus framework.
 
 Running the job.sh submits a new run.
 
-Running the run-analysis.sh analyses the run and out puts key features of the flow and graphs.
+Running the run-analysis.sh analyses the run and outputs key features of the flow and graphs.
 
 The snapshot and analysis directories have to be merged before analysis.
